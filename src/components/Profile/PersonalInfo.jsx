@@ -2,7 +2,6 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Mail, Phone, MapPin } from 'lucide-react';
 
 const personalInfoSchema = z.object({
   firstName: z.string().min(2, 'First name is required'),
@@ -15,14 +14,12 @@ const personalInfoSchema = z.object({
   zipCode: z.string().min(5, 'Invalid ZIP code'),
 });
 
-type PersonalInfoData = z.infer<typeof personalInfoSchema>;
-
 function PersonalInfo() {
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<PersonalInfoData>({
+  } = useForm({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
       firstName: 'John',
@@ -36,7 +33,7 @@ function PersonalInfo() {
     },
   });
 
-  const onSubmit = (data: PersonalInfoData) => {
+  const onSubmit = (data) => {
     console.log('Personal info update:', data);
   };
 
@@ -103,28 +100,30 @@ function PersonalInfo() {
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">City</label>
-          <input
-            type="text"
-            {...register('city')}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-          {errors.city && (
-            <p className="mt-1 text-sm text-red-600">{errors.city.message}</p>
-          )}
-        </div>
+        <div className="md:col-span-2 grid grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">City</label>
+            <input
+              type="text"
+              {...register('city')}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+            {errors.city && (
+              <p className="mt-1 text-sm text-red-600">{errors.city.message}</p>
+            )}
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">State</label>
-          <input
-            type="text"
-            {...register('state')}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-          {errors.state && (
-            <p className="mt-1 text-sm text-red-600">{errors.state.message}</p>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">State</label>
+            <input
+              type="text"
+              {...register('state')}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+            {errors.state && (
+              <p className="mt-1 text-sm text-red-600">{errors.state.message}</p>
+            )}
+          </div>
         </div>
 
         <div>

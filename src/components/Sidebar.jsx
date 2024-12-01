@@ -20,7 +20,7 @@ function Sidebar() {
         <ul className="space-y-2">
           {menuItems.map(({ icon: Icon, label, path }) => (
             <li key={path}>
-              <Link
+               <Link
                 to={path}
                 className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                   location.pathname === path

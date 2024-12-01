@@ -23,7 +23,7 @@ const scheduledTransfers = [
 ];
 
 function ScheduledTransfers() {
-  const cancelTransfer = (id: number) => {
+  const cancelTransfer = (id) => {
     console.log('Canceling transfer:', id);
   };
 

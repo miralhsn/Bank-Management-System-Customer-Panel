@@ -1,17 +1,7 @@
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
 
-interface AccountProps {
-  account: {
-    type: string;
-    number: string;
-    balance: number;
-    currency: string;
-    icon: LucideIcon;
-  };
-}
-
-function AccountCard({ account }: AccountProps) {
+function AccountCard({ account }) {
   const Icon = account.icon;
   const isNegative = account.balance < 0;
 

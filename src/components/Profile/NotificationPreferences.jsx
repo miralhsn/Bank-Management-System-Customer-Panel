@@ -1,6 +1,6 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Bell, Mail, Smartphone, CreditCard, Shield } from 'lucide-react';
+import { Bell, Mail, CreditCard, Shield } from 'lucide-react';
 
 const notificationTypes = [
   {
@@ -44,7 +44,7 @@ function NotificationPreferences() {
     },
   });
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data) => {
     console.log('Notification preferences update:', data);
   };
 

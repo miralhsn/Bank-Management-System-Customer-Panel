@@ -1,7 +1,9 @@
 import Stripe from 'stripe';
-import sgMail from '@sendgrid/mail';
+//import sgMail from '@sendgrid/mail';
 import twilio from 'twilio';
-import { Client } from '@google/maps';
+//import pkg from '@google/maps';
+//const { Client } = pkg;
+
 import { Onfido } from '@onfido/api';
 
 // Initialize services only if API keys are present
@@ -25,7 +27,7 @@ const onfidoClient = process.env.ONFIDO_API_KEY
 export {
   stripe,
   twilioClient,
-  sgMail,
+  //sgMail,
   mapsClient,
   onfidoClient
 };

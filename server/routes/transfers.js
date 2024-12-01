@@ -3,7 +3,7 @@ import Transfer from '../models/Transfer.js';
 import Account from '../models/Account.js';
 import { stripe } from '../config/services.js';
 import { detectFraud } from '../middleware/fraudDetection.js';
-import { sendEmail, sendSMS } from '../config/services.js';
+//import { sendEmail, sendSMS } from '../config/services.js';
 
 const router = express.Router();
 

@@ -1,30 +1,11 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { FileText, Upload } from 'lucide-react';
 
-const loanApplicationSchema = z.object({
-  loanType: z.enum(['personal', 'auto', 'home']),
-  amount: z.number().min(1000, 'Minimum loan amount is $1,000'),
-  purpose: z.string().min(1, 'Loan purpose is required'),
-  term: z.number().min(6, 'Minimum term is 6 months'),
-  employmentStatus: z.string().min(1, 'Employment status is required'),
-  annualIncome: z.number().min(1, 'Annual income is required'),
-});
-
-type LoanApplicationData = z.infer<typeof loanApplicationSchema>;
-
 function LoanApplication() {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoanApplicationData>({
-    resolver: zodResolver(loanApplicationSchema),
-  });
+  const { register, handleSubmit, formState: { errors } } = useForm();
 
-  const onSubmit = (data: LoanApplicationData) => {
+  const onSubmit = (data) => {
     console.log('Loan application:', data);
   };
 
@@ -41,21 +22,17 @@ function LoanApplication() {
             <option value="auto">Auto Loan</option>
             <option value="home">Home Loan</option>
           </select>
-          {errors.loanType && (
-            <p className="mt-1 text-sm text-red-600">{errors.loanType.message}</p>
-          )}
+          {errors.loanType && <p className="mt-1 text-sm text-red-600">{errors.loanType.message}</p>}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Loan Amount</label>
           <input
             type="number"
-            {...register('amount', { valueAsNumber: true })}
+            {...register('amount')}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
-          {errors.amount && (
-            <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
-          )}
+          {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>}
         </div>
 
         <div>
@@ -65,21 +42,17 @@ function LoanApplication() {
             {...register('purpose')}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
-          {errors.purpose && (
-            <p className="mt-1 text-sm text-red-600">{errors.purpose.message}</p>
-          )}
+          {errors.purpose && <p className="mt-1 text-sm text-red-600">{errors.purpose.message}</p>}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Loan Term (months)</label>
           <input
             type="number"
-            {...register('term', { valueAsNumber: true })}
+            {...register('term')}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
-          {errors.term && (
-            <p className="mt-1 text-sm text-red-600">{errors.term.message}</p>
-          )}
+          {errors.term && <p className="mt-1 text-sm text-red-600">{errors.term.message}</p>}
         </div>
 
         <div>
@@ -94,21 +67,17 @@ function LoanApplication() {
             <option value="unemployed">Unemployed</option>
             <option value="retired">Retired</option>
           </select>
-          {errors.employmentStatus && (
-            <p className="mt-1 text-sm text-red-600">{errors.employmentStatus.message}</p>
-          )}
+          {errors.employmentStatus && <p className="mt-1 text-sm text-red-600">{errors.employmentStatus.message}</p>}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Annual Income</label>
           <input
             type="number"
-            {...register('annualIncome', { valueAsNumber: true })}
+            {...register('annualIncome')}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
-          {errors.annualIncome && (
-            <p className="mt-1 text-sm text-red-600">{errors.annualIncome.message}</p>
-          )}
+          {errors.annualIncome && <p className="mt-1 text-sm text-red-600">{errors.annualIncome.message}</p>}
         </div>
       </div>
 

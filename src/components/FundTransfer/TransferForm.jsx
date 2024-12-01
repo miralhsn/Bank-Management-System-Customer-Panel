@@ -13,22 +13,16 @@ const transferSchema = z.object({
   frequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
 });
 
-type TransferFormData = z.infer<typeof transferSchema>;
-
-interface TransferFormProps {
-  type: 'internal' | 'external' | 'scheduled';
-}
-
-function TransferForm({ type }: TransferFormProps) {
+function TransferForm({ type }) {
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<TransferFormData>({
+  } = useForm({
     resolver: zodResolver(transferSchema),
   });
 
-  const onSubmit = (data: TransferFormData) => {
+  const onSubmit = (data) => {
     console.log('Transfer data:', data);
   };
 
@@ -102,19 +96,52 @@ function TransferForm({ type }: TransferFormProps) {
           type="text"
           {...register('description')}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="Enter transfer description"
+          placeholder="Transfer description"
         />
         {errors.description && (
           <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
         )}
       </div>
 
-      <button
-        type="submit"
-        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-      >
-        Transfer Funds
-      </button>
+      {type === 'scheduled' && (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Schedule Date</label>
+            <input
+              type="date"
+              {...register('scheduleDate')}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                {...register('recurring')}
+                className="h-4 w-4 text-blue-500 border-gray-300 rounded"
+              />
+              <span className="ml-2 text-sm font-medium text-gray-700">Recurring</span>
+            </label>
+            {errors.recurring && (
+              <p className="mt-1 text-sm text-red-600">{errors.recurring.message}</p>
+            )}
+          </div>
+
+          {errors.scheduleDate && (
+            <p className="mt-1 text-sm text-red-600">{errors.scheduleDate.message}</p>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          className="px-6 py-3 bg-blue-500 text-white font-semibold rounded-md shadow-sm hover:bg-blue-600"
+        >
+          Transfer
+        </button>
+      </div>
     </form>
   );
 }

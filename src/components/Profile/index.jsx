@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Phone, Lock, MapPin, Bell } from 'lucide-react';
+import { User, Lock, Bell } from 'lucide-react';
 import PersonalInfo from './PersonalInfo';
 import SecuritySettings from './SecuritySettings';
 import NotificationPreferences from './NotificationPreferences';
@@ -28,12 +28,8 @@ function Profile() {
                 : 'bg-white border-2 border-gray-200'
             }`}
           >
-            <Icon className={`h-6 w-6 ${
-              activeSection === id ? 'text-blue-500' : 'text-gray-500'
-            }`} />
-            <span className={`font-medium ${
-              activeSection === id ? 'text-blue-700' : 'text-gray-700'
-            }`}>
+            <Icon className={`h-6 w-6 ${activeSection === id ? 'text-blue-500' : 'text-gray-500'}`} />
+            <span className={`font-medium ${activeSection === id ? 'text-blue-700' : 'text-gray-700'}`}>
               {label}
             </span>
           </button>

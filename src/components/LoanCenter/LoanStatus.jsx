@@ -21,7 +21,7 @@ const applications = [
 ];
 
 function LoanStatus() {
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status) => {
     switch (status) {
       case 'approved':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
@@ -32,7 +32,7 @@ function LoanStatus() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status) => {
     switch (status) {
       case 'approved':
         return 'text-green-600 bg-green-50';

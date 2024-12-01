@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Search, Filter } from 'lucide-react';
+import { Download, Search } from 'lucide-react';
 
 const transactions = [
   {
@@ -35,7 +35,7 @@ function TransactionHistory() {
     return matchesSearch && matchesDate && matchesType;
   });
 
-  const handleExport = (format: 'pdf' | 'csv') => {
+  const handleExport = (format) => {
     // Implementation for export functionality
     console.log(`Exporting as ${format}`);
   };
@@ -117,9 +117,7 @@ function TransactionHistory() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {transaction.description}
                   </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                    transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {transaction.amount >= 0 ? '+' : ''}{transaction.amount.toLocaleString('en-US', {
                       style: 'currency',
                       currency: 'USD'
