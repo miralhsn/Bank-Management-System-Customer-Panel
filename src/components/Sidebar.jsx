@@ -1,14 +1,13 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, History, CreditCard, PiggyBank, Settings, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, CreditCard, Banknote, PiggyBank, UserCircle } from 'lucide-react';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: History, label: 'Transactions', path: '/transactions' },
-  { icon: CreditCard, label: 'Cards', path: '/cards' },
-  { icon: PiggyBank, label: 'Savings', path: '/savings' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
-  { icon: HelpCircle, label: 'Help', path: '/help' },
+  { icon: CreditCard, label: 'Transactions', path: '/transactions' },
+  { icon: Banknote, label: 'Fund Transfer', path: '/transfer' },
+  { icon: PiggyBank, label: 'Loans', path: '/loans' },
+  { icon: UserCircle, label: 'Profile', path: '/profile' },
 ];
 
 function Sidebar() {
@@ -20,7 +19,7 @@ function Sidebar() {
         <ul className="space-y-2">
           {menuItems.map(({ icon: Icon, label, path }) => (
             <li key={path}>
-               <Link
+              <Link
                 to={path}
                 className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                   location.pathname === path
