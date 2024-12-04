@@ -1,4 +1,5 @@
 import React from 'react';
+import logo from '../images/logo.png';
 import { Bell, User } from 'lucide-react';
 
 function Navbar() {
@@ -7,7 +8,8 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           {/* Logo */}
-          <div className="flex-shrink-0">
+          <div className="flex items-center space-x-2">
+            <img src={logo} alt="ReliPay Logo" className="h-10 w-10" />
             <span className="text-2xl font-bold text-blue-600">ReliPay</span>
           </div>
 
