@@ -8,8 +8,8 @@ const loanSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['personal', 'auto', 'home'],
-    required: true
+    required: true,
+    enum: ['personal', 'home', 'auto', 'business']
   },
   amount: {
     type: Number,
@@ -23,18 +23,17 @@ const loanSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending'
-  },
   monthlyPayment: {
     type: Number,
     required: true
   },
-  documents: [{
+  status: {
     type: String,
-    required: true
+    enum: ['pending', 'approved', 'rejected', 'active', 'closed'],
+    default: 'pending'
+  },
+  documents: [{
+    type: String
   }],
   applicationDate: {
     type: Date,

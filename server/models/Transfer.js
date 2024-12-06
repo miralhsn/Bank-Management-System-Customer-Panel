@@ -12,7 +12,8 @@ const transferSchema = new mongoose.Schema({
     required: true
   },
   toAccount: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Account',
     required: true
   },
   amount: {
@@ -21,8 +22,8 @@ const transferSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['internal', 'external'],
-    required: true
+    required: true,
+    enum: ['internal', 'external', 'wire']
   },
   status: {
     type: String,
@@ -30,18 +31,7 @@ const transferSchema = new mongoose.Schema({
     default: 'pending'
   },
   description: String,
-  scheduledDate: Date,
-  recurring: {
-    type: Boolean,
-    default: false
-  },
-  frequency: {
-    type: String,
-    enum: ['daily', 'weekly', 'monthly'],
-    required: function() {
-      return this.recurring;
-    }
-  }
+  stripePaymentIntentId: String
 }, {
   timestamps: true
 });

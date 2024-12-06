@@ -1,38 +1,33 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
+import { authenticate } from '../middleware/authenticate.js';
 
 const router = express.Router();
 
-// Update personal information
-router.put('/profile', async (req, res) => {
+// All routes should use authenticate middleware
+router.put('/profile', authenticate, async (req, res) => {
   try {
-    const {
-      firstName,
-      lastName,
-      phone,
-      address
-    } = req.body;
+    const { phone, address } = req.body;
 
+    // Find user by ID (attached to req.user by authenticate middleware)
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.firstName = firstName;
-    user.lastName = lastName;
-    user.phone = phone;
-    user.address = address;
+    // Update only the phone and address fields if provided
+    if (phone) user.phone = phone;
+    if (address) user.address = address;
 
     await user.save();
-    res.json(user);
+    res.json({ message: 'Profile updated successfully', user });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Update security settings
-router.put('/security', async (req, res) => {
+router.put('/security', authenticate, async (req, res) => {
   try {
     const {
       currentPassword,
@@ -64,8 +59,7 @@ router.put('/security', async (req, res) => {
   }
 });
 
-// Update notification preferences
-router.put('/notifications', async (req, res) => {
+router.put('/notifications', authenticate, async (req, res) => {
   try {
     const { notificationPreferences } = req.body;
 

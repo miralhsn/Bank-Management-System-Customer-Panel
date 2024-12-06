@@ -1,43 +1,84 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, Search } from 'lucide-react';
-
-const transactions = [
-  {
-    id: 1,
-    date: '2024-03-01',
-    description: 'Salary Deposit',
-    amount: 3500.00,
-    type: 'credit',
-    category: 'Income',
-    recipient: 'Self',
-  },
-  {
-    id: 2,
-    date: '2024-03-02',
-    description: 'Grocery Shopping',
-    amount: -150.75,
-    type: 'debit',
-    category: 'Shopping',
-    recipient: 'Whole Foods',
-  },
-  // Add more transactions as needed
-];
+import axios from 'axios';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { CSVLink } from 'react-csv';
+import TransactionDetails from './TransactionDetails';
 
 function TransactionHistory() {
+  const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      const accountId = 'your-account-id';
+      const response = await axios.get(`/api/transactions/${accountId}`);
+      setTransactions(response.data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setLoading(false);
+    }
+  };
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDate = dateFilter ? transaction.date.includes(dateFilter) : true;
+    const matchesDate = dateFilter ? transaction.createdAt.includes(dateFilter) : true;
     const matchesType = typeFilter ? transaction.type === typeFilter : true;
     return matchesSearch && matchesDate && matchesType;
   });
 
-  const handleExport = (format) => {
-    // Implementation for export functionality
-    console.log(`Exporting as ${format}`);
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.text('Transaction History', 14, 15);
+    
+    const tableColumn = ['Date', 'Description', 'Amount', 'Category', 'Recipient'];
+    const tableRows = filteredTransactions.map(transaction => [
+      new Date(transaction.createdAt).toLocaleDateString(),
+      transaction.description,
+      transaction.amount.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      }),
+      transaction.category,
+      transaction.recipient
+    ]);
+
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 20,
+    });
+
+    doc.save('transaction-history.pdf');
+  };
+
+  const csvData = filteredTransactions.map(transaction => ({
+    Date: new Date(transaction.createdAt).toLocaleDateString(),
+    Description: transaction.description,
+    Amount: transaction.amount,
+    Category: transaction.category,
+    Recipient: transaction.recipient,
+    Status: transaction.status
+  }));
+
+  const handleRowClick = async (transactionId) => {
+    try {
+      const response = await axios.get(`/api/transactions/details/${transactionId}`);
+      setSelectedTransaction(response.data);
+    } catch (error) {
+      console.error('Error fetching transaction details:', error);
+    }
   };
 
   return (
@@ -46,19 +87,20 @@ function TransactionHistory() {
         <h1 className="text-3xl font-bold text-gray-900">Transaction History</h1>
         <div className="flex space-x-4">
           <button
-            onClick={() => handleExport('pdf')}
+            onClick={handleExportPDF}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Download className="h-4 w-4" />
             <span>Export PDF</span>
           </button>
-          <button
-            onClick={() => handleExport('csv')}
+          <CSVLink
+            data={csvData}
+            filename="transaction-history.csv"
             className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
           >
             <Download className="h-4 w-4" />
             <span>Export CSV</span>
-          </button>
+          </CSVLink>
         </div>
       </div>
 
@@ -107,12 +149,12 @@ function TransactionHistory() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredTransactions.map((transaction) => (
                 <tr
-                  key={transaction.id}
+                  key={transaction._id}
                   className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => console.log('View transaction details', transaction.id)}
+                  onClick={() => handleRowClick(transaction._id)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(transaction.date).toLocaleDateString()}
+                    {new Date(transaction.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {transaction.description}
@@ -135,6 +177,13 @@ function TransactionHistory() {
           </table>
         </div>
       </div>
+
+      {selectedTransaction && (
+        <TransactionDetails
+          transaction={selectedTransaction}
+          onClose={() => setSelectedTransaction(null)}
+        />
+      )}
     </div>
   );
 }
