@@ -9,7 +9,7 @@ const accountSchema = new mongoose.Schema({
   accountType: {
     type: String,
     required: true,
-    enum: ['savings', 'checking', 'credit']
+    enum: ['savings', 'checking', 'loan']
   },
   accountNumber: {
     type: String,
@@ -29,6 +29,18 @@ const accountSchema = new mongoose.Schema({
     type: String,
     enum: ['active', 'inactive', 'frozen'],
     default: 'active'
+  },
+  interestRate: {
+    type: Number,
+    default: 0
+  },
+  minimumBalance: {
+    type: Number,
+    default: 0
+  },
+  overdraftLimit: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

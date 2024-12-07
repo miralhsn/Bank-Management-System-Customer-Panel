@@ -7,6 +7,7 @@ import TransactionHistory from './components/TransactionHistory.jsx';
 import FundTransfer from './components/FundTransfer/index.jsx';            
 import LoanCenter from './components/LoanCenter/index.jsx';               
 import Profile from './components/Profile/index.jsx';                       
+import AccountOverview from './components/AccountOverview/index.jsx';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
             <Route path="/transfer" element={<FundTransfer />} />
             <Route path="/loans" element={<LoanCenter />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/accounts" element={<AccountOverview />} />
           </Routes>
         </main>
       </div>

@@ -27,11 +27,23 @@ const transferSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed'],
+    enum: ['pending', 'completed', 'failed', 'scheduled'],
     default: 'pending'
   },
   description: String,
-  stripePaymentIntentId: String
+  scheduledDate: Date,
+  recurring: {
+    type: Boolean,
+    default: false
+  },
+  frequency: {
+    type: String,
+    enum: ['daily', 'weekly', 'monthly'],
+    required: function() {
+      return this.recurring;
+    }
+  },
+  nextExecutionDate: Date
 }, {
   timestamps: true
 });

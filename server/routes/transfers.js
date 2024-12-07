@@ -101,4 +101,83 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
+// Schedule a transfer
+router.post('/schedule', authenticate, async (req, res) => {
+  try {
+    const {
+      fromAccount,
+      toAccount,
+      amount,
+      type,
+      description,
+      scheduledDate,
+      recurring,
+      frequency
+    } = req.body;
+
+    // Validate scheduled date
+    if (new Date(scheduledDate) < new Date()) {
+      return res.status(400).json({ message: 'Scheduled date must be in the future' });
+    }
+
+    const transfer = new Transfer({
+      userId: req.user._id,
+      fromAccount,
+      toAccount,
+      amount,
+      type,
+      description,
+      status: 'scheduled',
+      scheduledDate,
+      recurring,
+      frequency,
+      nextExecutionDate: scheduledDate
+    });
+
+    await transfer.save();
+    res.status(201).json(transfer);
+  } catch (error) {
+    console.error('Schedule transfer error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get scheduled transfers
+router.get('/scheduled', authenticate, async (req, res) => {
+  try {
+    const transfers = await Transfer.find({
+      userId: req.user._id,
+      status: 'scheduled'
+    }).sort({ scheduledDate: 1 });
+    
+    res.json(transfers);
+  } catch (error) {
+    console.error('Get scheduled transfers error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Cancel scheduled transfer
+router.post('/:id/cancel', authenticate, async (req, res) => {
+  try {
+    const transfer = await Transfer.findOne({
+      _id: req.params.id,
+      userId: req.user._id,
+      status: 'scheduled'
+    });
+
+    if (!transfer) {
+      return res.status(404).json({ message: 'Scheduled transfer not found' });
+    }
+
+    transfer.status = 'cancelled';
+    await transfer.save();
+    
+    res.json({ message: 'Transfer cancelled successfully' });
+  } catch (error) {
+    console.error('Cancel transfer error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;
