@@ -42,7 +42,10 @@ const userSchema = new mongoose.Schema({
       enum: ['sms', 'email', 'authenticator'],
       default: 'sms'
     },
-    secret: String // for authenticator app
+    verified: {
+      type: Boolean,
+      default: false
+    }
   },
   notificationPreferences: {
     account: {

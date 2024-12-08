@@ -15,6 +15,7 @@ import { dirname } from 'path';
 import mongoose from 'mongoose';
 import testRoutes from './routes/test.js';
 import profileRoutes from './routes/profile.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ app.use('/api/loans', loanRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Serve uploaded files
 const __filename = fileURLToPath(import.meta.url);
@@ -62,6 +64,31 @@ setInterval(async () => {
     process.exit(1);
   }
 }, 30000); // Check every 30 seconds
+
+// Add MongoDB connection monitoring
+mongoose.connection.on('connected', () => {
+  console.log('MongoDB connected successfully');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected');
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  try {
+    await mongoose.connection.close();
+    console.log('MongoDB connection closed through app termination');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during MongoDB shutdown:', err);
+    process.exit(1);
+  }
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {

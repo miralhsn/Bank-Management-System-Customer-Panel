@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 
 const PersonalInfo = () => {
   const { user, setUser } = useAuth();
@@ -43,10 +44,7 @@ const PersonalInfo = () => {
       const [parent, child] = name.split('.');
       setFormData(prev => ({
         ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
+        [parent]: { ...prev[parent], [child]: value }
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -63,8 +61,8 @@ const PersonalInfo = () => {
       const response = await api.patch('/profile', formData);
       setUser(response.data);
       setSuccess('Profile updated successfully');
-    } catch (error) {
-      setError(error.response?.data?.message || 'Failed to update profile');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -73,19 +71,22 @@ const PersonalInfo = () => {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="p-3 bg-red-50 border-l-4 border-red-500 text-red-700">
+        <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center">
+          <AlertCircle className="w-5 h-5 mr-2" />
           {error}
         </div>
       )}
+
       {success && (
-        <div className="p-3 bg-green-50 border-l-4 border-green-500 text-green-700">
+        <div className="p-4 bg-green-50 border-l-4 border-green-500 text-green-700 flex items-center">
+          <CheckCircle className="w-5 h-5 mr-2" />
           {success}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Full Name</label>
+          <label className="block text-sm font-medium text-gray-700">Name</label>
           <input
             type="text"
             name="name"
@@ -107,7 +108,7 @@ const PersonalInfo = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+          <label className="block text-sm font-medium text-gray-700">Phone</label>
           <input
             type="tel"
             name="phone"
@@ -116,11 +117,8 @@ const PersonalInfo = () => {
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
-      </div>
 
-      <div className="mt-6">
-        <h3 className="text-lg font-medium text-gray-900">Address Information</h3>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Street Address</label>
             <input

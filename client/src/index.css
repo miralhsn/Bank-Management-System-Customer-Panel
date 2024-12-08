@@ -16,17 +16,89 @@ code {
     monospace;
 }
 
+/* Add these custom styles */
+.sidebar {
+  @apply fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-30;
+  top: 4rem; /* Adjust based on your navbar height */
+}
+
+.main-content {
+  @apply ml-64 p-6;
+  margin-top: 4rem; /* Adjust based on your navbar height */
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    @apply transform -translate-x-full;
+    transition: transform 0.3s ease-in-out;
+  }
+
+  .sidebar.open {
+    @apply translate-x-0;
+  }
+
+  .main-content {
+    @apply ml-0;
+  }
+}
+
+/* Additional utility classes */
 @layer components {
-  .dropdown-menu {
-    @apply absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50
-    transform origin-top-right transition-all duration-200 ease-out;
+  .layout-container {
+    @apply min-h-screen bg-gray-100;
   }
 
-  .dropdown-menu.enter {
-    @apply opacity-100 scale-100;
+  .main-wrapper {
+    @apply flex pt-16;
   }
 
-  .dropdown-menu.leave {
-    @apply opacity-0 scale-95;
+  .sidebar {
+    @apply fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white shadow-lg z-30 
+           transition-transform duration-300 ease-in-out
+           md:translate-x-0;
+  }
+
+  .main-content {
+    @apply flex-1 p-4 transition-all duration-300 ease-in-out
+           md:ml-64;
+  }
+
+  .navbar {
+    @apply fixed top-0 left-0 right-0 h-16 bg-white shadow-md z-40;
+  }
+
+  /* Mobile styles */
+  @media (max-width: 768px) {
+    .sidebar {
+      @apply -translate-x-full;
+    }
+
+    .sidebar.open {
+      @apply translate-x-0;
+    }
+
+    .main-content {
+      @apply ml-0;
+    }
+  }
+
+  /* Utility classes */
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
+           transition-colors duration-200;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 border border-gray-300 text-gray-700 rounded-lg 
+           hover:bg-gray-50 transition-colors duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-md p-6;
+  }
+
+  .form-input {
+    @apply mt-1 block w-full rounded-md border-gray-300 shadow-sm 
+           focus:border-blue-500 focus:ring-blue-500;
   }
 } 

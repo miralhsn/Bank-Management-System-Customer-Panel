@@ -38,8 +38,8 @@ const SecuritySettings = () => {
         newPassword: '',
         confirmPassword: ''
       });
-    } catch (error) {
-      setError(error.response?.data?.message || 'Failed to update password');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update password');
     } finally {
       setLoading(false);
     }
@@ -51,14 +51,14 @@ const SecuritySettings = () => {
     setSuccess('');
 
     try {
-      await api.post('/profile/2fa/toggle', {
+      await api.post('/profile/2fa', {
         enabled: !twoFactorEnabled,
         method: twoFactorMethod
       });
       setTwoFactorEnabled(!twoFactorEnabled);
-      setSuccess(`Two-factor authentication ${!twoFactorEnabled ? 'enabled' : 'disabled'}`);
-    } catch (error) {
-      setError(error.response?.data?.message || 'Failed to update 2FA settings');
+      setSuccess(`Two-factor authentication ${!twoFactorEnabled ? 'enabled' : 'disabled'} successfully`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update 2FA settings');
     } finally {
       setLoading(false);
     }
@@ -66,24 +66,14 @@ const SecuritySettings = () => {
 
   return (
     <div className="space-y-8">
-      {error && (
-        <div className="p-3 bg-red-50 border-l-4 border-red-500 text-red-700">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="p-3 bg-green-50 border-l-4 border-green-500 text-green-700">
-          {success}
-        </div>
-      )}
-
       {/* Password Change Section */}
-      <div>
-        <h3 className="text-lg font-medium flex items-center">
-          <Lock className="w-5 h-5 mr-2" />
-          Change Password
-        </h3>
-        <form onSubmit={handlePasswordChange} className="mt-4 space-y-4">
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex items-center mb-4">
+          <Lock className="w-5 h-5 text-gray-400 mr-2" />
+          <h3 className="text-lg font-medium">Change Password</h3>
+        </div>
+
+        <form onSubmit={handlePasswordChange} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Current Password
@@ -91,11 +81,12 @@ const SecuritySettings = () => {
             <input
               type="password"
               value={passwordData.currentPassword}
-              onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+              onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">
               New Password
@@ -103,11 +94,12 @@ const SecuritySettings = () => {
             <input
               type="password"
               value={passwordData.newPassword}
-              onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+              onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">
               Confirm New Password
@@ -115,15 +107,16 @@ const SecuritySettings = () => {
             <input
               type="password"
               value={passwordData.confirmPassword}
-              onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+              onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
           </div>
+
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
             {loading ? 'Updating...' : 'Update Password'}
           </button>
@@ -131,17 +124,18 @@ const SecuritySettings = () => {
       </div>
 
       {/* Two-Factor Authentication Section */}
-      <div>
-        <h3 className="text-lg font-medium flex items-center">
-          <Smartphone className="w-5 h-5 mr-2" />
-          Two-Factor Authentication
-        </h3>
-        <div className="mt-4 space-y-4">
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex items-center mb-4">
+          <Smartphone className="w-5 h-5 text-gray-400 mr-2" />
+          <h3 className="text-lg font-medium">Two-Factor Authentication</h3>
+        </div>
+
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">2FA Status</p>
+              <p className="font-medium">Two-Factor Authentication</p>
               <p className="text-sm text-gray-500">
-                {twoFactorEnabled ? 'Enabled' : 'Disabled'}
+                Add an extra layer of security to your account
               </p>
             </div>
             <button
@@ -175,6 +169,18 @@ const SecuritySettings = () => {
           )}
         </div>
       </div>
+
+      {/* Status Messages */}
+      {error && (
+        <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="p-4 bg-green-50 border-l-4 border-green-500 text-green-700">
+          {success}
+        </div>
+      )}
     </div>
   );
 };

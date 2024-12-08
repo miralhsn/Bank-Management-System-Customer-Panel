@@ -3,7 +3,7 @@ import api from '../../utils/api';
 import AccountCard from './AccountCard';
 import AccountDetails from './AccountDetails';
 import CreateAccountModal from './CreateAccountModal';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, AlertCircle } from 'lucide-react';
 
 const AccountOverview = () => {
   const [accounts, setAccounts] = useState([]);
@@ -11,10 +11,6 @@ const AccountOverview = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [totals, setTotals] = useState({
-    totalBalance: 0,
-    accountTypeTotals: {}
-  });
 
   useEffect(() => {
     fetchAccounts();
@@ -22,27 +18,11 @@ const AccountOverview = () => {
 
   const fetchAccounts = async () => {
     try {
-      console.log('Fetching accounts...');
-      const token = localStorage.getItem('token');
-      console.log('Auth Token:', token);
-
       const response = await api.get('/accounts/overview');
-      console.log('Accounts Response:', response.data);
-
-      if (response.data.accounts) {
-        setAccounts(response.data.accounts);
-        setTotals({
-          totalBalance: response.data.totalBalance || 0,
-          accountTypeTotals: response.data.accountTypeTotals || {}
-        });
-      } else {
-        console.error('No accounts data in response');
-        setError('No accounts found');
-      }
-    } catch (error) {
-      console.error('Error fetching accounts:', error);
-      console.error('Error response:', error.response?.data);
+      setAccounts(response.data.accounts || []);
+    } catch (err) {
       setError('Failed to load accounts');
+      console.error('Account fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -50,14 +30,12 @@ const AccountOverview = () => {
 
   const handleCreateAccount = async (accountData) => {
     try {
-      const response = await api.post('/accounts', accountData);
-      if (response.data) {
-        await fetchAccounts();
-        setShowCreateModal(false);
-      }
-    } catch (error) {
-      console.error('Create account error:', error);
-      throw new Error(error.response?.data?.message || 'Failed to create account');
+      await api.post('/accounts', accountData);
+      await fetchAccounts();
+      setShowCreateModal(false);
+    } catch (err) {
+      console.error('Create account error:', err);
+      throw new Error(err.response?.data?.message || 'Failed to create account');
     }
   };
 
@@ -71,49 +49,27 @@ const AccountOverview = () => {
 
   if (error) {
     return (
-      <div className="text-center p-6">
-        <div className="text-red-600 text-lg">{error}</div>
-        <button
-          onClick={fetchAccounts}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          Retry
-        </button>
+      <div className="bg-red-50 p-4 rounded-lg flex items-center text-red-700">
+        <AlertCircle className="w-5 h-5 mr-2" />
+        {error}
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-4 md:mb-0">Account Overview</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Your Accounts</h2>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="w-full md:w-auto flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <PlusCircle className="w-5 h-5 mr-2" />
           New Account
         </button>
       </div>
 
-      {/* Total Balance Summary */}
-      <div className="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Total Balance</h2>
-        <div className="text-2xl md:text-3xl font-bold text-blue-600">
-          ${totals.totalBalance.toLocaleString()}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-          {Object.entries(totals.accountTypeTotals).map(([type, amount]) => (
-            <div key={type} className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 capitalize">{type}</div>
-              <div className="text-lg font-semibold">${amount.toLocaleString()}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Account Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {accounts.map(account => (
           <AccountCard
             key={account._id}
@@ -123,7 +79,6 @@ const AccountOverview = () => {
         ))}
       </div>
 
-      {/* Modals */}
       {selectedAccount && (
         <AccountDetails
           account={selectedAccount}
