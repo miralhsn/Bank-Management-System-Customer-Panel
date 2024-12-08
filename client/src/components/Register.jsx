@@ -1,6 +1,7 @@
-import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import api from '../utils/api';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -10,32 +11,40 @@ const Register = () => {
     confirmPassword: ''
   });
   const [error, setError] = useState('');
-  const { login } = useContext(AuthContext);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
       return;
     }
+
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password
-        })
+      // Register the user
+      await api.post('/auth/register', {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message);
-      
-      await login({ email: formData.email, password: formData.password });
+
+      // Login after successful registration
+      await login({
+        email: formData.email,
+        password: formData.password
+      });
+
       navigate('/');
-    } catch (err) {
-      setError(err.message || 'Registration failed');
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to register');
+    } finally {
+      setLoading(false);
     }
   };
 

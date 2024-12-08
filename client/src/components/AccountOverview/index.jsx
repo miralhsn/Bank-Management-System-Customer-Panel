@@ -22,14 +22,26 @@ const AccountOverview = () => {
 
   const fetchAccounts = async () => {
     try {
+      console.log('Fetching accounts...');
+      const token = localStorage.getItem('token');
+      console.log('Auth Token:', token);
+
       const response = await api.get('/accounts/overview');
-      setAccounts(response.data.accounts);
-      setTotals({
-        totalBalance: response.data.totalBalance,
-        accountTypeTotals: response.data.accountTypeTotals
-      });
+      console.log('Accounts Response:', response.data);
+
+      if (response.data.accounts) {
+        setAccounts(response.data.accounts);
+        setTotals({
+          totalBalance: response.data.totalBalance || 0,
+          accountTypeTotals: response.data.accountTypeTotals || {}
+        });
+      } else {
+        console.error('No accounts data in response');
+        setError('No accounts found');
+      }
     } catch (error) {
       console.error('Error fetching accounts:', error);
+      console.error('Error response:', error.response?.data);
       setError('Failed to load accounts');
     } finally {
       setLoading(false);

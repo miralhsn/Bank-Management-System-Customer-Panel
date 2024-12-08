@@ -1,6 +1,6 @@
-import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -8,16 +8,22 @@ const Login = () => {
     password: ''
   });
   const [error, setError] = useState('');
-  const { login } = useContext(AuthContext);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
+
     try {
       await login(formData);
       navigate('/');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to login');
+    } finally {
+      setLoading(false);
     }
   };
 

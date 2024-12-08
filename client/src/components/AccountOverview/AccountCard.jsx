@@ -2,7 +2,7 @@ import React from 'react';
 import { CreditCard, ArrowUpRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const AccountCard = ({ account, onClick }) => {
+const AccountCard = ({ account }) => {
   const navigate = useNavigate();
 
   const getStatusColor = (status) => {
@@ -18,8 +18,7 @@ const AccountCard = ({ account, onClick }) => {
     }
   };
 
-  const handleClick = (e) => {
-    if (e.target.closest('button')) return; // Don't navigate if clicking a button
+  const handleClick = () => {
     navigate(`/accounts/${account._id}/transactions`);
   };
 
