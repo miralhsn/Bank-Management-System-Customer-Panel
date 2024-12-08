@@ -1,12 +1,14 @@
 import cron from 'node-cron';
 import Transfer from '../models/Transfer.js';
 import Account from '../models/Account.js';
-import Transaction from '../models/Transaction.js';
 import mongoose from 'mongoose';
 
 const processScheduledTransfers = async () => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  // Check if database is connected
+  if (mongoose.connection.readyState !== 1) {
+    console.log('Database not connected, skipping scheduled transfers');
+    return;
+  }
 
   try {
     // Get all pending transfers scheduled for today or earlier
@@ -16,60 +18,39 @@ const processScheduledTransfers = async () => {
     const transfers = await Transfer.find({
       status: 'pending',
       scheduledDate: { $lte: today }
-    });
+    }).exec(); // Use exec() to get a proper promise
+
+    console.log(`Processing ${transfers.length} scheduled transfers`);
 
     for (const transfer of transfers) {
       try {
         const fromAccount = await Account.findById(transfer.fromAccount);
         
-        if (fromAccount.balance < transfer.amount) {
+        if (!fromAccount || fromAccount.balance < transfer.amount) {
           transfer.status = 'failed';
-          await transfer.save({ session });
+          await transfer.save();
           continue;
         }
 
         // Process transfer
         fromAccount.balance -= transfer.amount;
-        await fromAccount.save({ session });
+        await fromAccount.save();
 
-        // Create debit transaction
-        const debitTransaction = new Transaction({
-          accountId: fromAccount._id,
-          type: 'debit',
-          amount: transfer.amount,
-          description: transfer.description,
-          category: 'transfer',
-          status: 'completed'
-        });
-        await debitTransaction.save({ session });
-
-        if (transfer.type === 'internal') {
+        if (transfer.type === 'internal' && transfer.toAccount) {
           const toAccount = await Account.findById(transfer.toAccount);
-          toAccount.balance += transfer.amount;
-          await toAccount.save({ session });
-
-          // Create credit transaction
-          const creditTransaction = new Transaction({
-            accountId: toAccount._id,
-            type: 'credit',
-            amount: transfer.amount,
-            description: transfer.description,
-            category: 'transfer',
-            status: 'completed'
-          });
-          await creditTransaction.save({ session });
+          if (toAccount) {
+            toAccount.balance += transfer.amount;
+            await toAccount.save();
+          }
         }
 
-        // Update transfer status
         transfer.status = 'completed';
-        await transfer.save({ session });
+        await transfer.save();
 
         // Handle recurring transfers
-        if (transfer.recurringDetails) {
-          const { frequency, endDate } = transfer.recurringDetails;
+        if (transfer.recurringDetails && transfer.recurringDetails.frequency) {
           const nextDate = new Date(transfer.scheduledDate);
-
-          switch (frequency) {
+          switch (transfer.recurringDetails.frequency) {
             case 'daily':
               nextDate.setDate(nextDate.getDate() + 1);
               break;
@@ -84,36 +65,36 @@ const processScheduledTransfers = async () => {
               break;
           }
 
-          if (!endDate || nextDate <= new Date(endDate)) {
+          if (!transfer.recurringDetails.endDate || nextDate <= new Date(transfer.recurringDetails.endDate)) {
             const newTransfer = new Transfer({
               ...transfer.toObject(),
               _id: new mongoose.Types.ObjectId(),
               status: 'pending',
               scheduledDate: nextDate
             });
-            await newTransfer.save({ session });
+            await newTransfer.save();
           }
         }
       } catch (error) {
         console.error(`Error processing transfer ${transfer._id}:`, error);
         transfer.status = 'failed';
-        await transfer.save({ session });
+        await transfer.save();
       }
     }
-
-    await session.commitTransaction();
   } catch (error) {
-    await session.abortTransaction();
     console.error('Error processing scheduled transfers:', error);
-  } finally {
-    session.endSession();
   }
 };
 
 // Run every day at midnight
-cron.schedule('0 0 * * *', processScheduledTransfers);
+cron.schedule('0 0 * * *', async () => {
+  console.log('Running scheduled transfers job');
+  await processScheduledTransfers();
+});
 
 export const startScheduler = () => {
   console.log('Transfer scheduler started');
-  processScheduledTransfers(); // Run once at startup
-}; 
+  // Don't run immediately on startup, wait for first scheduled time
+};
+
+export default { startScheduler }; 

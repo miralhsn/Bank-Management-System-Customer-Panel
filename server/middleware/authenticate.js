@@ -5,23 +5,28 @@ import User from '../models/User.js';
 
 export const authenticate = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    console.log('Authenticating request with token:', token ? 'Present' : 'Missing');
     
     if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+      return res.status(401).json({ message: 'No authentication token provided' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Token decoded, userId:', decoded.userId);
+
     const user = await User.findById(decoded.userId).select('-password');
+    console.log('User found:', user ? 'Yes' : 'No');
 
     if (!user) {
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User not found' });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    console.error('Auth error:', error);
-    res.status(401).json({ message: 'Invalid token' });
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Authentication failed' });
   }
 };

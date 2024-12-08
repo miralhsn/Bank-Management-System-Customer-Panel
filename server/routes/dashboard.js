@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticate } from '../middleware/authenticate.js';
+import { authenticate } from '../middleware/auth.js';
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 

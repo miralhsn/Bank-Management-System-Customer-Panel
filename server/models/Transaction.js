@@ -6,6 +6,11 @@ const transactionSchema = new mongoose.Schema({
     ref: 'Account',
     required: true
   },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   type: {
     type: String,
     enum: ['credit', 'debit'],
@@ -13,26 +18,51 @@ const transactionSchema = new mongoose.Schema({
   },
   amount: {
     type: Number,
-    required: true
+    required: true,
+    min: 0
   },
-  description: {
+  currency: {
     type: String,
-    required: true
+    default: 'USD'
   },
   category: {
     type: String,
     enum: ['transfer', 'deposit', 'withdrawal', 'payment', 'other'],
     default: 'other'
   },
-  recipientInfo: {
-    name: String,
-    accountNumber: String,
-    bankName: String
+  description: {
+    type: String,
+    required: true
   },
   status: {
     type: String,
     enum: ['pending', 'completed', 'failed'],
     default: 'completed'
+  },
+  transferDetails: {
+    fromAccount: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account'
+    },
+    toAccount: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account'
+    },
+    transferId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Transfer'
+    },
+    externalAccount: {
+      accountNumber: String,
+      bankName: String,
+      accountHolderName: String,
+      routingNumber: String
+    }
+  },
+  metadata: {
+    ip: String,
+    location: String,
+    deviceInfo: String
   },
   reference: {
     type: String,
@@ -51,5 +81,52 @@ transactionSchema.pre('save', async function(next) {
   }
   next();
 });
+
+// Create transactions for a transfer
+transactionSchema.statics.createTransferTransactions = async function(transferData) {
+  const { fromAccount, toAccount, amount, type, description, status, userId, transferId, externalAccount } = transferData;
+
+  const transactions = [];
+
+  // Debit transaction from source account
+  const debitTransaction = new this({
+    accountId: fromAccount,
+    userId,
+    type: 'debit',
+    amount,
+    category: 'transfer',
+    description: description || 'Transfer sent',
+    status,
+    transferDetails: {
+      fromAccount,
+      toAccount,
+      transferId,
+      externalAccount
+    }
+  });
+
+  transactions.push(debitTransaction);
+
+  // Credit transaction for internal transfers
+  if (toAccount && type === 'internal') {
+    const creditTransaction = new this({
+      accountId: toAccount,
+      userId,
+      type: 'credit',
+      amount,
+      category: 'transfer',
+      description: description || 'Transfer received',
+      status,
+      transferDetails: {
+        fromAccount,
+        toAccount,
+        transferId
+      }
+    });
+    transactions.push(creditTransaction);
+  }
+
+  return transactions;
+};
 
 export default mongoose.model('Transaction', transactionSchema);

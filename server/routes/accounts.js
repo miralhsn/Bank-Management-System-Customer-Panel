@@ -1,6 +1,6 @@
 import express from 'express';
 import Account from '../models/Account.js';
-import { authenticate } from '../middleware/authenticate.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 

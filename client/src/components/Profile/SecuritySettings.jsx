@@ -1,24 +1,49 @@
-import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { AlertCircle, CheckCircle, Smartphone, Mail, Key } from 'lucide-react';
 import api from '../../utils/api';
-import { Lock, Smartphone, Key } from 'lucide-react';
 
 const SecuritySettings = () => {
-  const { user } = useAuth();
-  const [passwordData, setPasswordData] = useState({
+  const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    twoFactorEnabled: false,
+    twoFactorMethod: 'sms'
   });
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.twoFactorAuth?.enabled || false);
-  const [twoFactorMethod, setTwoFactorMethod] = useState(user?.twoFactorAuth?.method || 'sms');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [showVerification, setShowVerification] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  useEffect(() => {
+    fetchSecuritySettings();
+  }, []);
+
+  const fetchSecuritySettings = async () => {
+    try {
+      const response = await api.get('/profile/security');
+      setFormData(prev => ({
+        ...prev,
+        twoFactorEnabled: response.data.twoFactorAuth.enabled,
+        twoFactorMethod: response.data.twoFactorAuth.method
+      }));
+    } catch (error) {
+      setError('Failed to load security settings');
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
+    if (formData.newPassword !== formData.confirmPassword) {
       setError('New passwords do not match');
       return;
     }
@@ -29,17 +54,19 @@ const SecuritySettings = () => {
 
     try {
       await api.post('/profile/change-password', {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword
       });
+
       setSuccess('Password updated successfully');
-      setPasswordData({
+      setFormData(prev => ({
+        ...prev,
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
-      });
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update password');
+      }));
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to update password');
     } finally {
       setLoading(false);
     }
@@ -51,27 +78,64 @@ const SecuritySettings = () => {
     setSuccess('');
 
     try {
-      await api.post('/profile/2fa', {
-        enabled: !twoFactorEnabled,
-        method: twoFactorMethod
+      if (!formData.twoFactorEnabled) {
+        // Send verification code
+        await api.post('/profile/2fa/setup', {
+          method: formData.twoFactorMethod
+        });
+        setShowVerification(true);
+      } else {
+        // Disable 2FA
+        await api.post('/profile/2fa/disable');
+        setFormData(prev => ({ ...prev, twoFactorEnabled: false }));
+        setSuccess('Two-factor authentication disabled');
+      }
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to update 2FA settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      await api.post('/profile/2fa/verify', {
+        code: verificationCode,
+        method: formData.twoFactorMethod
       });
-      setTwoFactorEnabled(!twoFactorEnabled);
-      setSuccess(`Two-factor authentication ${!twoFactorEnabled ? 'enabled' : 'disabled'} successfully`);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update 2FA settings');
+
+      setFormData(prev => ({ ...prev, twoFactorEnabled: true }));
+      setShowVerification(false);
+      setSuccess('Two-factor authentication enabled');
+    } catch (error) {
+      setError(error.response?.data?.message || 'Invalid verification code');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Password Change Section */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center mb-4">
-          <Lock className="w-5 h-5 text-gray-400 mr-2" />
-          <h3 className="text-lg font-medium">Change Password</h3>
-        </div>
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-medium mb-4">Change Password</h3>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center">
+            <AlertCircle className="w-5 h-5 mr-2" />
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-500 text-green-700 flex items-center">
+            <CheckCircle className="w-5 h-5 mr-2" />
+            {success}
+          </div>
+        )}
 
         <form onSubmit={handlePasswordChange} className="space-y-4">
           <div>
@@ -80,10 +144,11 @@ const SecuritySettings = () => {
             </label>
             <input
               type="password"
-              value={passwordData.currentPassword}
-              onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              name="currentPassword"
+              value={formData.currentPassword}
+              onChange={handleChange}
               required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             />
           </div>
 
@@ -93,10 +158,11 @@ const SecuritySettings = () => {
             </label>
             <input
               type="password"
-              value={passwordData.newPassword}
-              onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              name="newPassword"
+              value={formData.newPassword}
+              onChange={handleChange}
               required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             />
           </div>
 
@@ -106,10 +172,11 @@ const SecuritySettings = () => {
             </label>
             <input
               type="password"
-              value={passwordData.confirmPassword}
-              onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
               required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             />
           </div>
 
@@ -124,16 +191,13 @@ const SecuritySettings = () => {
       </div>
 
       {/* Two-Factor Authentication Section */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center mb-4">
-          <Smartphone className="w-5 h-5 text-gray-400 mr-2" />
-          <h3 className="text-lg font-medium">Two-Factor Authentication</h3>
-        </div>
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-medium mb-4">Two-Factor Authentication</h3>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Two-Factor Authentication</p>
+              <h4 className="font-medium">2FA Status</h4>
               <p className="text-sm text-gray-500">
                 Add an extra layer of security to your account
               </p>
@@ -142,45 +206,75 @@ const SecuritySettings = () => {
               onClick={handle2FAToggle}
               disabled={loading}
               className={`px-4 py-2 rounded-md ${
-                twoFactorEnabled
+                formData.twoFactorEnabled
                   ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-green-600 hover:bg-green-700'
+                  : 'bg-blue-600 hover:bg-blue-700'
               } text-white disabled:opacity-50`}
             >
-              {loading ? 'Processing...' : twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+              {formData.twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
             </button>
           </div>
 
-          {twoFactorEnabled && (
+          {!formData.twoFactorEnabled && (
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Verification Method
               </label>
-              <select
-                value={twoFactorMethod}
-                onChange={(e) => setTwoFactorMethod(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                <option value="sms">SMS</option>
-                <option value="email">Email</option>
-                <option value="authenticator">Authenticator App</option>
-              </select>
+              <div className="space-y-2">
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="radio"
+                    name="twoFactorMethod"
+                    value="sms"
+                    checked={formData.twoFactorMethod === 'sms'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600"
+                  />
+                  <Smartphone className="w-5 h-5 text-gray-400" />
+                  <span>SMS</span>
+                </label>
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="radio"
+                    name="twoFactorMethod"
+                    value="email"
+                    checked={formData.twoFactorMethod === 'email'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600"
+                  />
+                  <Mail className="w-5 h-5 text-gray-400" />
+                  <span>Email</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {showVerification && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Verification Code
+              </label>
+              <div className="mt-1 flex space-x-2">
+                <input
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  maxLength="6"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Enter 6-digit code"
+                />
+                <button
+                  onClick={handleVerifyCode}
+                  disabled={loading || verificationCode.length !== 6}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Verify
+                </button>
+              </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* Status Messages */}
-      {error && (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="p-4 bg-green-50 border-l-4 border-green-500 text-green-700">
-          {success}
-        </div>
-      )}
     </div>
   );
 };

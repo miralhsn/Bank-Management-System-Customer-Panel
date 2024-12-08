@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticate } from '../middleware/authenticate.js';
+import { authenticate } from '../middleware/auth.js';
 import Transfer from '../models/Transfer.js';
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
@@ -23,9 +23,6 @@ router.get('/', authenticate, async (req, res) => {
 
 // Create new transfer
 router.post('/', authenticate, async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const {
       fromAccountId,
@@ -77,34 +74,28 @@ router.post('/', authenticate, async (req, res) => {
     // If scheduled for future or recurring, save transfer and return
     if (scheduledDate || recurringDetails) {
       transfer.status = 'pending';
-      await transfer.save({ session });
-      await session.commitTransaction();
+      await transfer.save();
       return res.status(201).json(transfer);
     }
 
     // Process immediate transfer
     transfer.status = 'completed';
-    
+
     // Update account balances
     fromAccount.balance -= amount;
-    await fromAccount.save({ session });
+    await fromAccount.save();
 
     if (type === 'internal') {
       const toAccount = await Account.findById(toAccountId);
       toAccount.balance += amount;
-      await toAccount.save({ session });
+      await toAccount.save();
     }
 
-    await transfer.save({ session });
-    await session.commitTransaction();
-
+    await transfer.save();
     res.status(201).json(transfer);
   } catch (error) {
-    await session.abortTransaction();
     console.error('Transfer error:', error);
     res.status(500).json({ message: error.message });
-  } finally {
-    session.endSession();
   }
 });
 

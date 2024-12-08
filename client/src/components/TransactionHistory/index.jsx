@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Filter, Search, AlertCircle } from 'lucide-react';
+import { Download, Filter, Search, AlertCircle, FileText } from 'lucide-react';
 import api from '../../utils/api';
 import TransactionFilters from './TransactionFilters';
 import TransactionDetails from './TransactionDetails';
@@ -10,6 +10,11 @@ const TransactionHistory = () => {
   const [error, setError] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0
+  });
   const [filters, setFilters] = useState({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
@@ -17,48 +22,126 @@ const TransactionHistory = () => {
     category: '',
     minAmount: '',
     maxAmount: '',
-    status: ''
+    status: '',
+    sortBy: 'createdAt',
+    sortOrder: 'desc'
   });
 
   useEffect(() => {
     fetchTransactions();
-  }, [filters]);
+  }, [filters, pagination.page, pagination.limit]);
 
   const fetchTransactions = async () => {
     try {
-      const queryParams = new URLSearchParams({
-        ...filters,
-        minAmount: filters.minAmount || undefined,
-        maxAmount: filters.maxAmount || undefined
-      }).toString();
+      setLoading(true);
+      setError(null);
 
-      const response = await api.get(`/transactions?${queryParams}`);
-      setTransactions(response.data);
+      const params = {
+        page: pagination.page,
+        limit: pagination.limit,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder
+      };
+
+      // Only add filters if they have values
+      if (filters.type) params.type = filters.type;
+      if (filters.category) params.category = filters.category;
+      if (filters.status) params.status = filters.status;
+      if (filters.minAmount) params.minAmount = filters.minAmount;
+      if (filters.maxAmount) params.maxAmount = filters.maxAmount;
+
+      const response = await api.get('/transactions', { params });
+      
+      if (!response.data) {
+        throw new Error('No data received from server');
+      }
+
+      setTransactions(response.data.transactions || []);
+      setPagination(prev => ({
+        ...prev,
+        total: response.data.total || 0,
+        totalPages: Math.ceil((response.data.total || 0) / prev.limit)
+      }));
     } catch (err) {
-      setError('Failed to load transactions');
       console.error('Transaction fetch error:', err);
+      setError(err.response?.data?.message || 'Failed to load transactions');
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSort = (field) => {
+    setFilters(prev => ({
+      ...prev,
+      sortBy: field,
+      sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({
+      ...prev,
+      page: newPage
+    }));
+  };
+
   const handleDownload = async (format) => {
     try {
-      const response = await api.get('/transactions/download', {
-        params: { ...filters, format },
-        responseType: 'blob'
+      setLoading(true);
+      setError(null);
+      
+      const response = await api.get(`/transactions/download/${format}`, {
+        responseType: 'blob',
+        params: {
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          type: filters.type || undefined,
+          category: filters.category || undefined,
+          status: filters.status || undefined,
+          minAmount: filters.minAmount || undefined,
+          maxAmount: filters.maxAmount || undefined
+        }
       });
 
+      // Create blob and download
+      const blob = new Blob([response.data], {
+        type: format === 'pdf' ? 'application/pdf' : 'text/csv'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.${format}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download error:', err);
+      setError(err.response?.data?.message || `Failed to download ${format} file`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadPDF = async (transaction) => {
+    try {
+      const response = await api.get(`/transactions/${transaction._id}/receipt`, {
+        responseType: 'blob'
+      });
+      
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `transactions.${format}`);
+      link.setAttribute('download', `transaction-${transaction._id}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
     } catch (err) {
-      console.error(`Error downloading ${format}:`, err);
-      setError(`Failed to download ${format}`);
+      console.error('Download error:', err);
+      setError('Failed to download receipt');
     }
   };
 
@@ -79,6 +162,30 @@ const TransactionHistory = () => {
     );
   }
 
+  if (!transactions || transactions.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-gray-500 mb-4">No transactions found</div>
+        <button
+          onClick={async () => {
+            try {
+              setLoading(true);
+              await api.post('/transactions/seed-test-data');
+              await fetchTransactions();
+            } catch (error) {
+              setError(error.response?.data?.message || 'Failed to create test transactions');
+            } finally {
+              setLoading(false);
+            }
+          }}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Create Test Transactions
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -92,24 +199,36 @@ const TransactionHistory = () => {
             <Filter className="w-5 h-5 mr-2" />
             Filters
           </button>
-          <div className="dropdown relative">
+          <div className="flex gap-2">
             <button
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              onClick={() => handleDownload('pdf')}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              disabled={loading || !transactions.length}
+            >
+              <FileText className="w-5 h-5 mr-2" />
+              Export PDF
+            </button>
+            <button
+              onClick={() => handleDownload('csv')}
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              disabled={loading || !transactions.length}
             >
               <Download className="w-5 h-5 mr-2" />
-              Export
+              Export CSV
             </button>
-            <div className="dropdown-menu">
-              <button onClick={() => handleDownload('pdf')} className="dropdown-item">
-                Download PDF
-              </button>
-              <button onClick={() => handleDownload('csv')} className="dropdown-item">
-                Download CSV
-              </button>
-            </div>
           </div>
         </div>
       </div>
+
+      {/* Show error message if any */}
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+          <div className="flex">
+            <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+            <p className="text-red-700">{error}</p>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       {showFilters && (
@@ -140,6 +259,9 @@ const TransactionHistory = () => {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -177,10 +299,53 @@ const TransactionHistory = () => {
                       {transaction.status}
                     </span>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <button
+                      onClick={() => handleDownloadPDF(transaction)}
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <FileText className="w-4 h-4 mr-1" />
+                      Receipt
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="mt-6 flex justify-between items-center">
+        <div className="text-sm text-gray-700">
+          Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} transactions
+        </div>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => handlePageChange(pagination.page - 1)}
+            disabled={pagination.page === 1}
+            className="px-3 py-1 border rounded-md disabled:opacity-50"
+          >
+            Previous
+          </button>
+          {[...Array(Math.ceil(pagination.total / pagination.limit))].map((_, i) => (
+            <button
+              key={i + 1}
+              onClick={() => handlePageChange(i + 1)}
+              className={`px-3 py-1 border rounded-md ${
+                pagination.page === i + 1 ? 'bg-blue-600 text-white' : ''
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+          <button
+            onClick={() => handlePageChange(pagination.page + 1)}
+            disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit)}
+            className="px-3 py-1 border rounded-md disabled:opacity-50"
+          >
+            Next
+          </button>
         </div>
       </div>
 

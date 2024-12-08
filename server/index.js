@@ -2,102 +2,120 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
-import accountRoutes from './routes/accounts.js';
 import authRoutes from './routes/auth.js';
+import userRoutes from './routes/users.js';
+import accountRoutes from './routes/accounts.js';
 import transactionRoutes from './routes/transactions.js';
 import transferRoutes from './routes/transfers.js';
 import loanRoutes from './routes/loans.js';
-import userRoutes from './routes/users.js';
-import { startScheduler } from './utils/scheduledTransfers.js';
+import dashboardRoutes from './routes/dashboard.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import mongoose from 'mongoose';
-import testRoutes from './routes/test.js';
-import profileRoutes from './routes/profile.js';
-import dashboardRoutes from './routes/dashboard.js';
 
+// Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? 'https://your-production-domain.com' 
+    ? process.env.FRONTEND_URL 
     : ['http://localhost:3000', 'http://127.0.0.1:3000'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  credentials: true
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Connect to MongoDB
-connectDB();
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
-app.use('/api/accounts', accountRoutes);
+// API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/accounts', accountRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/loans', loanRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/test', testRoutes);
-app.use('/api/profile', profileRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
-// Serve uploaded files
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Start the scheduler
-startScheduler();
-
-// Monitor MongoDB connection
-setInterval(async () => {
-  try {
-    await mongoose.connection.db.admin().ping();
-  } catch (error) {
-    console.error('MongoDB connection lost:', error);
-    process.exit(1);
-  }
-}, 30000); // Check every 30 seconds
-
-// Add MongoDB connection monitoring
-mongoose.connection.on('connected', () => {
-  console.log('MongoDB connected successfully');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('MongoDB connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected');
-});
-
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  try {
-    await mongoose.connection.close();
-    console.log('MongoDB connection closed through app termination');
-    process.exit(0);
-  } catch (err) {
-    console.error('Error during MongoDB shutdown:', err);
-    process.exit(1);
-  }
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
+  });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  console.error('Global error handler:', err);
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Handle 404s
+app.use((req, res) => {
+  res.status(404).json({ 
+    message: 'Not Found',
+    path: req.path
+  });
 });
 
-export default app;
+const PORT = process.env.PORT || 5000;
+const MAX_RETRIES = 5;
+const RETRY_INTERVAL = 5000; // 5 seconds
+
+const startServer = async (retryCount = 0) => {
+  try {
+    // Check if MongoDB is installed
+    try {
+      await import('mongodb');
+    } catch (error) {
+      console.error('\x1b[31m%s\x1b[0m', 'MongoDB driver not found. Please install MongoDB:');
+      console.log('\x1b[36m%s\x1b[0m', '1. Download MongoDB Community Server from https://www.mongodb.com/try/download/community');
+      console.log('\x1b[36m%s\x1b[0m', '2. Run the installer and follow the installation steps');
+      console.log('\x1b[36m%s\x1b[0m', '3. Make sure MongoDB service is running:');
+      console.log('\x1b[36m%s\x1b[0m', '   - Windows: Open Services app and check if MongoDB is running');
+      console.log('\x1b[36m%s\x1b[0m', '   - Mac/Linux: Run sudo service mongod start');
+      process.exit(1);
+    }
+
+    // Connect to MongoDB
+    const conn = await connectDB();
+    
+    if (!conn) {
+      throw new Error('Failed to connect to MongoDB');
+    }
+
+    // Start the server
+    app.listen(PORT, () => {
+      console.log('\x1b[32m%s\x1b[0m', `Server running on port ${PORT}`);
+      console.log('\x1b[32m%s\x1b[0m', `MongoDB connected to ${conn.connection.host}`);
+      console.log('\x1b[32m%s\x1b[0m', `Environment: ${process.env.NODE_ENV}`);
+    });
+  } catch (error) {
+    console.error('\x1b[31m%s\x1b[0m', 'Server startup error:', error.message);
+
+    if (retryCount < MAX_RETRIES) {
+      console.log(`Retry attempt ${retryCount + 1} of ${MAX_RETRIES} in ${RETRY_INTERVAL/1000} seconds...`);
+      setTimeout(() => startServer(retryCount + 1), RETRY_INTERVAL);
+    } else {
+      console.error('\x1b[31m%s\x1b[0m', 'Maximum retry attempts reached. Please:');
+      console.log('\x1b[36m%s\x1b[0m', '1. Verify MongoDB is installed and running:');
+      console.log('\x1b[36m%s\x1b[0m', '   - Windows: Open Services app and start MongoDB');
+      console.log('\x1b[36m%s\x1b[0m', '   - Mac/Linux: Run sudo service mongod start');
+      console.log('\x1b[36m%s\x1b[0m', '2. Check if MongoDB is running on the default port (27017)');
+      console.log('\x1b[36m%s\x1b[0m', '3. Verify your MongoDB connection string in .env file');
+      console.log('\x1b[36m%s\x1b[0m', '4. Try running mongod command in a new terminal');
+      process.exit(1);
+    }
+  }
+};
+
+startServer();

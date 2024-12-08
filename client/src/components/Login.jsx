@@ -18,10 +18,15 @@ const Login = () => {
     setLoading(true);
 
     try {
+      if (!formData.email || !formData.password) {
+        throw new Error('Email and password are required');
+      }
+
       await login(formData);
       navigate('/');
-    } catch (error) {
-      setError(error.response?.data?.message || 'Failed to login');
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to login');
+      console.error('Login error:', err);
     } finally {
       setLoading(false);
     }
@@ -35,12 +40,14 @@ const Login = () => {
             Sign in to your account
           </h2>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 text-red-700">
+            {error}
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <input
@@ -67,10 +74,20 @@ const Login = () => {
           <div>
             <button
               type="submit"
+              disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              Sign in
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
+          </div>
+          
+          <div className="text-center mt-4">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
+              <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
+                Register here
+              </Link>
+            </p>
           </div>
         </form>
       </div>

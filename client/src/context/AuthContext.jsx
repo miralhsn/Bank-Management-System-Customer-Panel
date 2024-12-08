@@ -29,27 +29,34 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Auth check error:', error);
       localStorage.removeItem('token');
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
   const login = async (credentials) => {
-    const response = await api.post('/auth/login', credentials);
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
-    setUser(user);
-    return user;
+    try {
+      const response = await api.post('/auth/login', credentials);
+      const { token, user } = response.data;
+      
+      console.log('Login successful, setting token and user');
+      localStorage.setItem('token', token);
+      setUser(user);
+      
+      return user;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
   const logout = async () => {
     try {
-      await api.post('/auth/logout');
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
       localStorage.removeItem('token');
       setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
