@@ -20,6 +20,8 @@ import Dashboard from './components/Dashboard';
 import TransactionHistory from './components/TransactionHistory';
 import Profile from './components/Profile';
 import ErrorPage from './components/ErrorPage';
+import LoanDashboard from './components/Loan';
+import LoanDetails from './components/Loan/LoanDetails';
 
 // Layout component to wrap authenticated pages
 const Layout = () => {

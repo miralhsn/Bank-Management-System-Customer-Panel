@@ -18,7 +18,10 @@ router.post('/', authenticate, async (req, res) => {
       financialDetails,
       references,
       termsAccepted,
-      truthfulnessDeclaration
+      truthfulnessDeclaration,
+      monthlyPayment,
+      totalPayment,
+      interestRate
     } = req.body;
 
     // Validate required fields
@@ -28,20 +31,40 @@ router.post('/', authenticate, async (req, res) => {
       });
     }
 
+    // Create new loan application
     const loan = new Loan({
       userId: req.user._id,
       type,
-      amount: parseFloat(amount),
-      term: parseInt(term),
+      amount: Number(amount),
+      term: Number(term),
       purpose,
-      employmentDetails,
-      personalDetails,
-      financialDetails,
+      employmentDetails: {
+        employerName: employmentDetails.employerName,
+        jobTitle: employmentDetails.jobTitle,
+        monthlyIncome: Number(employmentDetails.monthlyIncome),
+        employmentDuration: Number(employmentDetails.employmentDuration)
+      },
+      personalDetails: {
+        fullName: personalDetails.fullName,
+        dateOfBirth: new Date(personalDetails.dateOfBirth),
+        phoneNumber: personalDetails.phoneNumber,
+        address: personalDetails.address
+      },
+      financialDetails: {
+        monthlyExpenses: Number(financialDetails.monthlyExpenses),
+        existingLoans: Number(financialDetails.existingLoans),
+        creditScore: Number(financialDetails.creditScore)
+      },
       references,
       termsAccepted,
-      truthfulnessDeclaration
+      truthfulnessDeclaration,
+      monthlyPayment: Number(monthlyPayment),
+      totalPayment: Number(totalPayment),
+      interestRate: Number(interestRate),
+      status: 'pending'
     });
 
+    // Save the loan application
     await loan.save();
     res.status(201).json(loan);
   } catch (error) {
@@ -58,6 +81,25 @@ router.get('/', authenticate, async (req, res) => {
     res.json(loans);
   } catch (error) {
     console.error('Get loans error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get specific loan details
+router.get('/:id', authenticate, async (req, res) => {
+  try {
+    const loan = await Loan.findOne({
+      _id: req.params.id,
+      userId: req.user._id
+    });
+
+    if (!loan) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    res.json(loan);
+  } catch (error) {
+    console.error('Get loan details error:', error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -146,42 +188,30 @@ router.get('/:id/pdf', authenticate, async (req, res) => {
     doc.moveDown();
 
     // References
-    doc.fontSize(14).text('References');
-    doc.fontSize(12);
-    loan.references.forEach((ref, index) => {
-      doc.text(`Reference ${index + 1}:`);
-      doc.text(`Name: ${ref.name}`);
-      doc.text(`Relationship: ${ref.relationship}`);
-      doc.text(`Phone: ${ref.phoneNumber}`);
-      doc.text(`Email: ${ref.email}`);
-      doc.moveDown();
-    });
+    if (loan.references && loan.references.length > 0) {
+      doc.fontSize(14).text('References');
+      doc.fontSize(12);
+      loan.references.forEach((ref, index) => {
+        doc.text(`Reference ${index + 1}:`);
+        doc.text(`Name: ${ref.name}`);
+        doc.text(`Relationship: ${ref.relationship}`);
+        doc.text(`Phone: ${ref.phoneNumber}`);
+        doc.text(`Email: ${ref.email}`);
+        doc.moveDown();
+      });
+    }
 
-    // Terms and Declarations
-    doc.fontSize(14).text('Terms and Declarations');
+    // Declarations
+    doc.fontSize(14).text('Declarations');
     doc.fontSize(12);
-    doc.text('By submitting this application, I declare that:');
-    doc.text('1. All information provided in this application is true and accurate.');
-    doc.text('2. I understand that providing false information may result in legal consequences.');
-    doc.text('3. I authorize ReliBank to verify all information provided.');
-    doc.text('4. I agree to the terms and conditions of the loan agreement.');
-    doc.moveDown();
-
     doc.text(`Terms Accepted: ${loan.termsAccepted ? 'Yes' : 'No'}`);
-    doc.text(`Truthfulness Declared: ${loan.truthfulnessDeclaration ? 'Yes' : 'No'}`);
-    doc.moveDown();
+    doc.text(`Truthfulness Declaration: ${loan.truthfulnessDeclaration ? 'Yes' : 'No'}`);
 
-    // Footer
-    doc.fontSize(10).text('This is a computer-generated document and does not require a signature.', {
-      align: 'center'
-    });
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, { align: 'center' });
-
-    // Finalize PDF
+    // End the PDF
     doc.end();
   } catch (error) {
-    console.error('Generate loan PDF error:', error);
-    res.status(500).json({ message: 'Failed to generate loan PDF' });
+    console.error('PDF generation error:', error);
+    res.status(500).json({ message: error.message });
   }
 });
 
@@ -190,32 +220,40 @@ router.post('/calculate', authenticate, (req, res) => {
   try {
     const { type, amount, term } = req.body;
     
+    // Validate inputs
+    const principal = Number(amount);
+    const termMonths = Number(term);
+
+    if (isNaN(principal) || isNaN(termMonths) || principal <= 0 || termMonths <= 0) {
+      return res.status(400).json({ message: 'Invalid amount or term' });
+    }
+
     // Calculate interest rate based on loan type and amount
     const baseRate = {
       personal: 12,
       auto: 8,
       home: 6
-    }[type];
+    }[type] || 12;
 
     // Adjust rate based on amount and term
     let rate = baseRate;
-    if (amount > 100000) rate -= 0.5;
-    if (term > 60) rate += 0.5;
+    if (principal > 100000) rate -= 0.5;
+    if (termMonths > 60) rate += 0.5;
 
     // Calculate monthly payment
     const monthlyRate = rate / 1200;
-    const monthlyPayment = (amount * monthlyRate * Math.pow(1 + monthlyRate, term)) / 
-                          (Math.pow(1 + monthlyRate, term) - 1);
+    const monthlyPayment = (principal * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) / 
+                          (Math.pow(1 + monthlyRate, termMonths) - 1);
 
     // Calculate total payment
-    const totalPayment = monthlyPayment * term;
-    const totalInterest = totalPayment - amount;
+    const totalPayment = monthlyPayment * termMonths;
+    const totalInterest = totalPayment - principal;
 
     res.json({
-      monthlyPayment,
-      totalPayment,
-      totalInterest,
-      interestRate: rate
+      monthlyPayment: Number(monthlyPayment.toFixed(2)),
+      totalPayment: Number(totalPayment.toFixed(2)),
+      totalInterest: Number(totalInterest.toFixed(2)),
+      interestRate: Number(rate.toFixed(2))
     });
   } catch (error) {
     console.error('Loan calculation error:', error);

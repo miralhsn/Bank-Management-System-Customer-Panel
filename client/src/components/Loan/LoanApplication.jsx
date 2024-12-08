@@ -6,31 +6,27 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 const calculateLoanDetails = (amount, term, type) => {
   try {
     // Ensure we have valid numbers
-    const principal = parseFloat(amount);
-    const termMonths = parseInt(term);
+    const principal = Number(amount);
+    const termMonths = Number(term);
 
     if (isNaN(principal) || isNaN(termMonths) || principal <= 0 || termMonths <= 0) {
       throw new Error('Invalid loan amount or term');
     }
 
-    // Set interest rate based on loan type
-    let interestRate;
-    switch (type) {
-      case 'personal':
-        interestRate = 12.99;
-        break;
-      case 'auto':
-        interestRate = 6.99;
-        break;
-      case 'home':
-        interestRate = 4.99;
-        break;
-      default:
-        interestRate = 12.99;
-    }
+    // Set base interest rate based on loan type
+    const baseRate = {
+      personal: 12,
+      auto: 8,
+      home: 6
+    }[type] || 12;
+
+    // Adjust rate based on amount and term
+    let rate = baseRate;
+    if (principal > 100000) rate -= 0.5;
+    if (termMonths > 60) rate += 0.5;
 
     // Convert annual rate to monthly rate
-    const monthlyRate = interestRate / 100 / 12;
+    const monthlyRate = rate / 1200;
 
     // Calculate monthly payment using loan amortization formula
     const monthlyPayment = (principal * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
@@ -45,9 +41,9 @@ const calculateLoanDetails = (amount, term, type) => {
     }
 
     return {
-      monthlyPayment: parseFloat(monthlyPayment.toFixed(2)),
-      totalPayment: parseFloat(totalPayment.toFixed(2)),
-      interestRate: parseFloat(interestRate.toFixed(2))
+      monthlyPayment: Number(monthlyPayment.toFixed(2)),
+      totalPayment: Number(totalPayment.toFixed(2)),
+      interestRate: Number(rate.toFixed(2))
     };
   } catch (error) {
     console.error('Loan calculation error:', error);
@@ -121,18 +117,53 @@ const LoanApplication = () => {
         formData.type
       );
 
-      // Prepare the complete loan application data
+      // Create the loan application data with all required fields
       const loanApplication = {
-        ...formData,
+        type: formData.type,
+        amount: Number(formData.amount),
+        term: Number(formData.term),
+        purpose: formData.purpose,
+        employmentDetails: {
+          employerName: formData.employmentDetails.employerName,
+          jobTitle: formData.employmentDetails.jobTitle,
+          monthlyIncome: Number(formData.employmentDetails.monthlyIncome),
+          employmentDuration: Number(formData.employmentDetails.employmentDuration)
+        },
+        personalDetails: {
+          fullName: formData.personalDetails.fullName,
+          dateOfBirth: formData.personalDetails.dateOfBirth,
+          phoneNumber: formData.personalDetails.phoneNumber,
+          address: {
+            street: formData.personalDetails.address.street,
+            city: formData.personalDetails.address.city,
+            state: formData.personalDetails.address.state,
+            zipCode: formData.personalDetails.address.zipCode,
+            country: formData.personalDetails.address.country
+          }
+        },
+        financialDetails: {
+          monthlyExpenses: Number(formData.financialDetails.monthlyExpenses),
+          existingLoans: Number(formData.financialDetails.existingLoans),
+          creditScore: Number(formData.financialDetails.creditScore)
+        },
+        references: formData.references.map(ref => ({
+          name: ref.name,
+          relationship: ref.relationship,
+          phoneNumber: ref.phoneNumber,
+          email: ref.email
+        })),
+        termsAccepted: Boolean(formData.termsAccepted),
+        truthfulnessDeclaration: Boolean(formData.truthfulnessDeclaration),
         monthlyPayment: loanDetails.monthlyPayment,
         totalPayment: loanDetails.totalPayment,
         interestRate: loanDetails.interestRate,
         status: 'pending'
       };
 
-      // Log the data being sent to verify all required fields are present
-      console.log('Submitting loan application:', loanApplication);
+      // Log the data being sent
+      console.log('Submitting loan application:', JSON.stringify(loanApplication, null, 2));
 
+      // Make the API call
       const response = await api.post('/loans', loanApplication);
       
       setSuccess(true);
@@ -154,7 +185,6 @@ const LoanApplication = () => {
         window.URL.revokeObjectURL(url);
       } catch (pdfError) {
         console.error('PDF generation error:', pdfError);
-        // Continue with navigation even if PDF fails
       }
 
       // Navigate after a short delay

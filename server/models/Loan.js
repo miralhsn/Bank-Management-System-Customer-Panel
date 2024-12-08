@@ -53,16 +53,16 @@ const loanSchema = new mongoose.Schema({
       type: Date,
       required: true
     },
+    phoneNumber: {
+      type: String,
+      required: true
+    },
     address: {
       street: String,
       city: String,
       state: String,
       zipCode: String,
       country: String
-    },
-    phoneNumber: {
-      type: String,
-      required: true
     }
   },
   financialDetails: {
@@ -96,22 +96,22 @@ const loanSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'processing'],
+    enum: ['pending', 'approved', 'rejected'],
     default: 'pending'
   },
   applicationDate: {
     type: Date,
     default: Date.now
   },
-  interestRate: {
-    type: Number,
-    required: true
-  },
   monthlyPayment: {
     type: Number,
     required: true
   },
   totalPayment: {
+    type: Number,
+    required: true
+  },
+  interestRate: {
     type: Number,
     required: true
   },
@@ -124,34 +124,6 @@ const loanSchema = new mongoose.Schema({
   reviewNotes: String
 }, {
   timestamps: true
-});
-
-// Calculate loan details before saving
-loanSchema.pre('save', function(next) {
-  if (this.isModified('amount') || this.isModified('term') || this.isModified('type')) {
-    // Calculate interest rate based on loan type and amount
-    const baseRate = {
-      personal: 12,
-      auto: 8,
-      home: 6
-    }[this.type];
-
-    // Adjust rate based on amount and term
-    let rate = baseRate;
-    if (this.amount > 100000) rate -= 0.5;
-    if (this.term > 60) rate += 0.5;
-
-    this.interestRate = rate;
-
-    // Calculate monthly payment
-    const monthlyRate = rate / 1200;
-    this.monthlyPayment = (this.amount * monthlyRate * Math.pow(1 + monthlyRate, this.term)) / 
-                         (Math.pow(1 + monthlyRate, this.term) - 1);
-
-    // Calculate total payment
-    this.totalPayment = this.monthlyPayment * this.term;
-  }
-  next();
 });
 
 export default mongoose.model('Loan', loanSchema);
