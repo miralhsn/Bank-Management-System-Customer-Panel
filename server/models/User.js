@@ -45,31 +45,29 @@ const userSchema = new mongoose.Schema({
     },
     method: {
       type: String,
-      enum: ['sms', 'email', 'authenticator', null],
+      enum: ['email', 'authenticator', 'sms', null],
       default: null
     },
-    secret: String, // For authenticator app
+    secret: String,
     verified: {
       type: Boolean,
       default: false
     },
+    codeExpires: Date,
     backupCodes: [String]
   },
   notificationPreferences: {
     account: {
       email: { type: Boolean, default: true },
-      sms: { type: Boolean, default: true },
-      push: { type: Boolean, default: false }
+      sms: { type: Boolean, default: false }
     },
     transactions: {
       email: { type: Boolean, default: true },
-      sms: { type: Boolean, default: true },
-      push: { type: Boolean, default: true }
+      sms: { type: Boolean, default: false }
     },
     marketing: {
       email: { type: Boolean, default: false },
-      sms: { type: Boolean, default: false },
-      push: { type: Boolean, default: false }
+      sms: { type: Boolean, default: false }
     }
   },
   role: {
@@ -90,8 +88,6 @@ const userSchema = new mongoose.Schema({
     lastAttempt: Date,
     lockUntil: Date
   },
-  passwordResetToken: String,
-  passwordResetExpires: Date,
   status: {
     type: String,
     enum: ['active', 'inactive', 'suspended'],
@@ -135,16 +131,37 @@ userSchema.methods.handleFailedLogin = async function() {
   await this.save();
 };
 
-// Method to reset login attempts
-userSchema.methods.resetLoginAttempts = async function() {
-  this.loginAttempts.count = 0;
-  this.loginAttempts.lockUntil = null;
+// Method to generate backup codes
+userSchema.methods.generateBackupCodes = async function() {
+  const codes = [];
+  for (let i = 0; i < 10; i++) {
+    const code = Math.random().toString(36).substring(2, 15).toUpperCase();
+    codes.push(code);
+  }
+  this.twoFactorAuth.backupCodes = codes;
   await this.save();
+  return codes;
 };
 
-// Method to check if account is locked
-userSchema.methods.isLocked = function() {
-  return this.loginAttempts.lockUntil && this.loginAttempts.lockUntil > Date.now();
+// Method to verify backup code
+userSchema.methods.verifyBackupCode = async function(code) {
+  const index = this.twoFactorAuth.backupCodes.indexOf(code);
+  if (index === -1) return false;
+  
+  // Remove used backup code
+  this.twoFactorAuth.backupCodes.splice(index, 1);
+  await this.save();
+  return true;
+};
+
+// Method to reset login attempts
+userSchema.methods.resetLoginAttempts = async function() {
+  this.loginAttempts = {
+    count: 0,
+    lastAttempt: null,
+    lockUntil: null
+  };
+  await this.save();
 };
 
 export default mongoose.model('User', userSchema);

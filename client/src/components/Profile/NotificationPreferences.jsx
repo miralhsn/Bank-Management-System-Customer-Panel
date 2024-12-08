@@ -1,30 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
-import { Bell, Mail, Smartphone, Globe, Receipt, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Bell } from 'lucide-react';
 
 const NotificationPreferences = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [preferences, setPreferences] = useState({
     account: {
       email: true,
-      sms: true,
-      push: false
+      sms: false
     },
     transactions: {
       email: true,
-      sms: true,
-      push: true
+      sms: false
     },
     marketing: {
       email: false,
-      sms: false,
-      push: false
+      sms: false
     }
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     if (user?.notificationPreferences) {
@@ -32,7 +29,7 @@ const NotificationPreferences = () => {
     }
   }, [user]);
 
-  const handleToggle = (category, method) => {
+  const handleChange = (category, method) => {
     setPreferences(prev => ({
       ...prev,
       [category]: {
@@ -42,13 +39,17 @@ const NotificationPreferences = () => {
     }));
   };
 
-  const handleSave = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setLoading(true);
-    setError('');
-    setSuccess('');
+    setError(null);
+    setSuccess(null);
 
     try {
-      await api.patch('/profile/notifications', { preferences });
+      const response = await api.post('/profile/notifications', {
+        notificationPreferences: preferences
+      });
+      updateUser(response.data.user);
       setSuccess('Notification preferences updated successfully');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update notification preferences');
@@ -57,107 +58,103 @@ const NotificationPreferences = () => {
     }
   };
 
-  const NotificationCategory = ({ title, category, icon: Icon }) => (
-    <div className="bg-white p-6 rounded-lg shadow">
-      <div className="flex items-center mb-4">
-        <Icon className="w-5 h-5 text-gray-400 mr-2" />
-        <h3 className="text-lg font-medium">{title}</h3>
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Mail className="w-5 h-5 text-gray-400 mr-2" />
-            <span className="text-sm font-medium">Email Notifications</span>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={preferences[category].email}
-              onChange={() => handleToggle(category, 'email')}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-          </label>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Smartphone className="w-5 h-5 text-gray-400 mr-2" />
-            <span className="text-sm font-medium">SMS Notifications</span>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={preferences[category].sms}
-              onChange={() => handleToggle(category, 'sms')}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-          </label>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Globe className="w-5 h-5 text-gray-400 mr-2" />
-            <span className="text-sm font-medium">Push Notifications</span>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={preferences[category].push}
-              onChange={() => handleToggle(category, 'push')}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-          </label>
-        </div>
-      </div>
-    </div>
-  );
+  const categories = [
+    {
+      id: 'account',
+      title: 'Account Notifications',
+      description: 'Get notified about important account activities and security alerts.'
+    },
+    {
+      id: 'transactions',
+      title: 'Transaction Notifications',
+      description: 'Receive alerts about deposits, withdrawals, and transfers.'
+    },
+    {
+      id: 'marketing',
+      title: 'Marketing Communications',
+      description: 'Stay updated about new features, promotions, and special offers.'
+    }
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="bg-white shadow rounded-lg p-6">
       {error && (
-        <div className="p-3 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center">
-          <AlertCircle className="w-5 h-5 mr-2" />
-          {error}
+        <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4">
+          <div className="flex">
+            <XCircle className="h-5 w-5 text-red-500" />
+            <p className="ml-3 text-red-700">{error}</p>
+          </div>
         </div>
       )}
 
       {success && (
-        <div className="p-3 bg-green-50 border-l-4 border-green-500 text-green-700">
-          {success}
+        <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4">
+          <div className="flex">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <p className="ml-3 text-green-700">{success}</p>
+          </div>
         </div>
       )}
 
-      <div className="space-y-4">
-        <NotificationCategory
-          title="Account Notifications"
-          category="account"
-          icon={Bell}
-        />
-        <NotificationCategory
-          title="Transaction Alerts"
-          category="transactions"
-          icon={Receipt}
-        />
-        <NotificationCategory
-          title="Marketing Communications"
-          category="marketing"
-          icon={Mail}
-        />
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-8">
+          {categories.map(({ id, title, description }) => (
+            <div key={id} className="border-b border-gray-200 pb-6 last:border-0 last:pb-0">
+              <div className="flex items-center mb-4">
+                <Bell className="h-5 w-5 text-gray-400 mr-2" />
+                <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+              </div>
+              <p className="text-sm text-gray-500 mb-4">{description}</p>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={preferences[id].email}
+                      onChange={() => handleChange(id, 'email')}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label className="ml-2 block text-sm text-gray-700">
+                      Email Notifications
+                    </label>
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    {user?.email}
+                  </span>
+                </div>
 
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? 'Saving...' : 'Save Preferences'}
-        </button>
-      </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={preferences[id].sms}
+                      onChange={() => handleChange(id, 'sms')}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label className="ml-2 block text-sm text-gray-700">
+                      SMS Notifications
+                    </label>
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    {user?.phone || 'No phone number added'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : 'Save Preferences'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

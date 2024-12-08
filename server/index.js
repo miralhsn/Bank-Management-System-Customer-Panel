@@ -9,6 +9,7 @@ import transactionRoutes from './routes/transactions.js';
 import transferRoutes from './routes/transfers.js';
 import loanRoutes from './routes/loans.js';
 import dashboardRoutes from './routes/dashboard.js';
+import profileRoutes from './routes/profile.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -23,7 +24,7 @@ const __dirname = path.dirname(__filename);
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? process.env.FRONTEND_URL 
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5000', 'http://127.0.0.1:5000'],
   credentials: true
 }));
 app.use(express.json());
@@ -40,6 +41,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -67,7 +69,7 @@ app.use((req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 const MAX_RETRIES = 5;
 const RETRY_INTERVAL = 5000; // 5 seconds
 
