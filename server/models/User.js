@@ -2,27 +2,19 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
-  firstName: {
+  name: {
     type: String,
-    required: true,
-    trim: true
-  },
-  lastName: {
-    type: String,
-    required: true,
-    trim: true
+    required: true
   },
   email: {
     type: String,
     required: true,
     unique: true,
-    trim: true,
     lowercase: true
   },
   password: {
     type: String,
-    required: true,
-    minlength: 6
+    required: true
   },
   phone: {
     type: String,
@@ -32,11 +24,25 @@ const userSchema = new mongoose.Schema({
     street: String,
     city: String,
     state: String,
-    zipCode: String
+    zipCode: String,
+    country: String
   },
-  twoFactorEnabled: {
-    type: Boolean,
-    default: false
+  dateOfBirth: Date,
+  securityQuestions: [{
+    question: String,
+    answer: String
+  }],
+  twoFactorAuth: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    method: {
+      type: String,
+      enum: ['sms', 'email', 'authenticator'],
+      default: 'sms'
+    },
+    secret: String // for authenticator app
   },
   notificationPreferences: {
     account: {
@@ -54,7 +60,15 @@ const userSchema = new mongoose.Schema({
       sms: { type: Boolean, default: false },
       push: { type: Boolean, default: false }
     }
-  }
+  },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
+  },
+  lastLogin: Date,
+  passwordResetToken: String,
+  passwordResetExpires: Date
 }, {
   timestamps: true
 });
@@ -66,5 +80,10 @@ userSchema.pre('save', async function(next) {
   }
   next();
 });
+
+// Compare password method
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
 export default mongoose.model('User', userSchema);

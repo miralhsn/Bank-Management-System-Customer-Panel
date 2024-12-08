@@ -4,13 +4,10 @@ const api = axios.create({
   baseURL: process.env.NODE_ENV === 'production' 
     ? '/api'
     : 'http://localhost:5000/api',
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  withCredentials: true
 });
 
-// Add request interceptor to add auth token
+// Add request interceptor
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -24,7 +21,7 @@ api.interceptors.request.use(
   }
 );
 
-// Add response interceptor to handle errors
+// Add response interceptor
 api.interceptors.response.use(
   (response) => response,
   (error) => {

@@ -5,23 +5,28 @@ export const generatePDF = async (transactions, account) => {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument();
-      const chunks = [];
-
-      doc.on('data', chunk => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      let buffers = [];
+      
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        let pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
 
       // Add content to PDF
       doc.fontSize(20).text('Account Statement', { align: 'center' });
       doc.moveDown();
       doc.fontSize(12).text(`Account Number: ${account.accountNumber}`);
       doc.text(`Account Type: ${account.accountType}`);
+      doc.text(`Statement Period: ${new Date().toLocaleDateString()}`);
       doc.moveDown();
 
-      // Add transactions table
+      // Add transactions
       transactions.forEach(transaction => {
-        doc.text(`Date: ${transaction.createdAt.toLocaleDateString()}`);
+        doc.text(`Date: ${new Date(transaction.createdAt).toLocaleDateString()}`);
         doc.text(`Description: ${transaction.description}`);
-        doc.text(`Amount: ${transaction.amount}`);
+        doc.text(`Amount: $${transaction.amount.toFixed(2)}`);
+        doc.text(`Status: ${transaction.status}`);
         doc.moveDown();
       });
 
@@ -33,16 +38,20 @@ export const generatePDF = async (transactions, account) => {
 };
 
 export const generateCSV = async (transactions, account) => {
-  const fields = ['date', 'description', 'amount', 'type', 'status'];
-  const json2csvParser = new Parser({ fields });
-  
-  const csvData = transactions.map(transaction => ({
-    date: transaction.createdAt,
-    description: transaction.description,
-    amount: transaction.amount,
-    type: transaction.type,
-    status: transaction.status
-  }));
+  try {
+    const fields = ['date', 'description', 'amount', 'status'];
+    const opts = { fields };
+    const parser = new Parser(opts);
 
-  return json2csvParser.parse(csvData);
+    const data = transactions.map(transaction => ({
+      date: new Date(transaction.createdAt).toLocaleDateString(),
+      description: transaction.description,
+      amount: transaction.amount.toFixed(2),
+      status: transaction.status
+    }));
+
+    return parser.parse(data);
+  } catch (error) {
+    throw error;
+  }
 }; 

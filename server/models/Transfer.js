@@ -13,39 +13,58 @@ const transferSchema = new mongoose.Schema({
   },
   toAccount: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Account',
-    required: true
+    ref: 'Account'
+  },
+  externalAccount: {
+    accountNumber: String,
+    bankName: String,
+    accountHolderName: String,
+    routingNumber: String
   },
   amount: {
     type: Number,
-    required: true
+    required: true,
+    min: 0
+  },
+  currency: {
+    type: String,
+    default: 'USD'
   },
   type: {
     type: String,
-    required: true,
-    enum: ['internal', 'external', 'wire']
+    enum: ['internal', 'external'],
+    required: true
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'scheduled'],
+    enum: ['pending', 'completed', 'failed', 'cancelled'],
     default: 'pending'
   },
   description: String,
   scheduledDate: Date,
-  recurring: {
-    type: Boolean,
-    default: false
+  recurringDetails: {
+    frequency: {
+      type: String,
+      enum: ['daily', 'weekly', 'monthly', 'yearly']
+    },
+    endDate: Date
   },
-  frequency: {
+  reference: {
     type: String,
-    enum: ['daily', 'weekly', 'monthly'],
-    required: function() {
-      return this.recurring;
-    }
-  },
-  nextExecutionDate: Date
+    unique: true
+  }
 }, {
   timestamps: true
+});
+
+// Generate unique reference before saving
+transferSchema.pre('save', async function(next) {
+  if (!this.reference) {
+    const date = new Date();
+    const randomNum = Math.floor(Math.random() * 1000000);
+    this.reference = `TRF${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}${randomNum}`;
+  }
+  next();
 });
 
 export default mongoose.model('Transfer', transferSchema);

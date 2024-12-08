@@ -1,80 +1,128 @@
 import express from 'express';
 import Transfer from '../models/Transfer.js';
 import Account from '../models/Account.js';
+import Transaction from '../models/Transaction.js';
 import { authenticate } from '../middleware/authenticate.js';
-import { stripe } from '../config/services.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
 // Create a new transfer
 router.post('/', authenticate, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    console.log('Transfer request:', req.body);
     const {
-      fromAccount,
-      toAccount,
+      fromAccountId,
+      toAccountId,
+      externalAccount,
       amount,
       type,
-      description
+      description,
+      scheduledDate,
+      recurringDetails
     } = req.body;
 
-    // Verify accounts exist and belong to user
-    const sourceAccount = await Account.findOne({
-      _id: fromAccount,
+    // Validate fromAccount belongs to user
+    const fromAccount = await Account.findOne({
+      _id: fromAccountId,
       userId: req.user._id
     });
 
-    if (!sourceAccount) {
+    if (!fromAccount) {
       return res.status(404).json({ message: 'Source account not found' });
     }
 
     // Check sufficient balance
-    if (sourceAccount.balance < amount) {
+    if (fromAccount.balance < amount) {
       return res.status(400).json({ message: 'Insufficient funds' });
     }
 
-    // Create transfer record
-    const transfer = new Transfer({
+    let transfer = new Transfer({
       userId: req.user._id,
-      fromAccount,
-      toAccount,
+      fromAccount: fromAccountId,
       amount,
       type,
-      description
+      description,
+      scheduledDate,
+      recurringDetails
     });
 
-    // Save transfer
-    const savedTransfer = await transfer.save();
-
-    // Update account balances
-    sourceAccount.balance -= amount;
-    await sourceAccount.save();
-
     if (type === 'internal') {
-      const destinationAccount = await Account.findById(toAccount);
-      if (destinationAccount) {
-        destinationAccount.balance += amount;
-        await destinationAccount.save();
+      // Validate toAccount exists
+      const toAccount = await Account.findById(toAccountId);
+      if (!toAccount) {
+        return res.status(404).json({ message: 'Destination account not found' });
       }
+      transfer.toAccount = toAccountId;
+    } else {
+      transfer.externalAccount = externalAccount;
     }
 
-    res.status(201).json(savedTransfer);
+    // If scheduled for future or recurring, save transfer and return
+    if (scheduledDate || recurringDetails) {
+      transfer.status = 'pending';
+      await transfer.save({ session });
+      await session.commitTransaction();
+      return res.status(201).json(transfer);
+    }
+
+    // Process immediate transfer
+    transfer.status = 'completed';
+    
+    // Create transactions
+    const debitTransaction = new Transaction({
+      accountId: fromAccountId,
+      type: 'debit',
+      amount,
+      description: `Transfer to ${type === 'internal' ? 'account ending in ' + toAccount.accountNumber.slice(-4) : externalAccount.accountHolderName}`,
+      category: 'transfer',
+      status: 'completed'
+    });
+
+    // Update account balances
+    fromAccount.balance -= amount;
+    await fromAccount.save({ session });
+    await debitTransaction.save({ session });
+
+    if (type === 'internal') {
+      const toAccount = await Account.findById(toAccountId);
+      toAccount.balance += amount;
+      await toAccount.save({ session });
+
+      const creditTransaction = new Transaction({
+        accountId: toAccountId,
+        type: 'credit',
+        amount,
+        description: `Transfer from account ending in ${fromAccount.accountNumber.slice(-4)}`,
+        category: 'transfer',
+        status: 'completed'
+      });
+      await creditTransaction.save({ session });
+    }
+
+    await transfer.save({ session });
+    await session.commitTransaction();
+
+    res.status(201).json(transfer);
   } catch (error) {
+    await session.abortTransaction();
     console.error('Transfer error:', error);
     res.status(500).json({ message: error.message });
+  } finally {
+    session.endSession();
   }
 });
 
 // Get user's transfers
 router.get('/', authenticate, async (req, res) => {
   try {
-    const transfers = await Transfer.find({
-      $or: [
-        { userId: req.user._id },
-        { toAccount: req.user._id }
-      ]
-    }).sort({ createdAt: -1 });
-    
+    const transfers = await Transfer.find({ userId: req.user._id })
+      .populate('fromAccount', 'accountNumber accountType')
+      .populate('toAccount', 'accountNumber accountType')
+      .sort({ createdAt: -1 });
+
     res.json(transfers);
   } catch (error) {
     console.error('Get transfers error:', error);
@@ -82,98 +130,23 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// Get transfer details
-router.get('/:id', authenticate, async (req, res) => {
-  try {
-    const transfer = await Transfer.findOne({
-      _id: req.params.id,
-      userId: req.user._id
-    });
-
-    if (!transfer) {
-      return res.status(404).json({ message: 'Transfer not found' });
-    }
-
-    res.json(transfer);
-  } catch (error) {
-    console.error('Get transfer details error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Schedule a transfer
-router.post('/schedule', authenticate, async (req, res) => {
-  try {
-    const {
-      fromAccount,
-      toAccount,
-      amount,
-      type,
-      description,
-      scheduledDate,
-      recurring,
-      frequency
-    } = req.body;
-
-    // Validate scheduled date
-    if (new Date(scheduledDate) < new Date()) {
-      return res.status(400).json({ message: 'Scheduled date must be in the future' });
-    }
-
-    const transfer = new Transfer({
-      userId: req.user._id,
-      fromAccount,
-      toAccount,
-      amount,
-      type,
-      description,
-      status: 'scheduled',
-      scheduledDate,
-      recurring,
-      frequency,
-      nextExecutionDate: scheduledDate
-    });
-
-    await transfer.save();
-    res.status(201).json(transfer);
-  } catch (error) {
-    console.error('Schedule transfer error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Get scheduled transfers
-router.get('/scheduled', authenticate, async (req, res) => {
-  try {
-    const transfers = await Transfer.find({
-      userId: req.user._id,
-      status: 'scheduled'
-    }).sort({ scheduledDate: 1 });
-    
-    res.json(transfers);
-  } catch (error) {
-    console.error('Get scheduled transfers error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
 // Cancel scheduled transfer
-router.post('/:id/cancel', authenticate, async (req, res) => {
+router.patch('/:transferId/cancel', authenticate, async (req, res) => {
   try {
     const transfer = await Transfer.findOne({
-      _id: req.params.id,
+      _id: req.params.transferId,
       userId: req.user._id,
-      status: 'scheduled'
+      status: 'pending'
     });
 
     if (!transfer) {
-      return res.status(404).json({ message: 'Scheduled transfer not found' });
+      return res.status(404).json({ message: 'Transfer not found or cannot be cancelled' });
     }
 
     transfer.status = 'cancelled';
     await transfer.save();
-    
-    res.json({ message: 'Transfer cancelled successfully' });
+
+    res.json(transfer);
   } catch (error) {
     console.error('Cancel transfer error:', error);
     res.status(500).json({ message: error.message });

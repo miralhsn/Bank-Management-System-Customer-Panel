@@ -1,15 +1,15 @@
 import mongoose from 'mongoose';
 
 const transactionSchema = new mongoose.Schema({
-  userId: {
+  accountId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Account',
     required: true
   },
   type: {
     type: String,
-    required: true,
-    enum: ['credit', 'debit']
+    enum: ['credit', 'debit'],
+    required: true
   },
   amount: {
     type: Number,
@@ -21,20 +21,35 @@ const transactionSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    required: true
+    enum: ['transfer', 'deposit', 'withdrawal', 'payment', 'other'],
+    default: 'other'
   },
-  recipient: {
-    type: String,
-    required: true
+  recipientInfo: {
+    name: String,
+    accountNumber: String,
+    bankName: String
   },
   status: {
     type: String,
-    required: true,
     enum: ['pending', 'completed', 'failed'],
     default: 'completed'
+  },
+  reference: {
+    type: String,
+    unique: true
   }
 }, {
   timestamps: true
+});
+
+// Generate unique reference number before saving
+transactionSchema.pre('save', async function(next) {
+  if (!this.reference) {
+    const date = new Date();
+    const randomNum = Math.floor(Math.random() * 1000000);
+    this.reference = `TXN${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}${randomNum}`;
+  }
+  next();
 });
 
 export default mongoose.model('Transaction', transactionSchema);

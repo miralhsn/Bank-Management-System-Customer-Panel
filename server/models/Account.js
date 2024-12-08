@@ -13,7 +13,6 @@ const accountSchema = new mongoose.Schema({
   },
   accountNumber: {
     type: String,
-    required: true,
     unique: true
   },
   balance: {
@@ -34,16 +33,34 @@ const accountSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  minimumBalance: {
-    type: Number,
-    default: 0
-  },
-  overdraftLimit: {
-    type: Number,
-    default: 0
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 }, {
   timestamps: true
+});
+
+// Generate unique account number before saving
+accountSchema.pre('save', async function(next) {
+  if (!this.accountNumber) {
+    let isUnique = false;
+    let randomNum;
+    
+    // Keep trying until we get a unique account number
+    while (!isUnique) {
+      randomNum = Math.floor(Math.random() * 9000000000) + 1000000000;
+      const existingAccount = await mongoose.model('Account').findOne({
+        accountNumber: randomNum.toString()
+      });
+      if (!existingAccount) {
+        isUnique = true;
+      }
+    }
+    
+    this.accountNumber = randomNum.toString();
+  }
+  next();
 });
 
 export default mongoose.model('Account', accountSchema);

@@ -14,4 +14,19 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+@layer components {
+  .dropdown-menu {
+    @apply absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50
+    transform origin-top-right transition-all duration-200 ease-out;
+  }
+
+  .dropdown-menu.enter {
+    @apply opacity-100 scale-100;
+  }
+
+  .dropdown-menu.leave {
+    @apply opacity-0 scale-95;
+  }
 } 
